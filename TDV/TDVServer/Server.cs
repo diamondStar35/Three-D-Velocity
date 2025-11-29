@@ -18,6 +18,7 @@ using System.Collections; //for ArrayList
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using System.Text.Json;
 
 namespace TDVServer
 {
@@ -165,7 +166,11 @@ namespace TDVServer
 		}
 	}
 
-
+    public class ServerSettings
+    {
+        public string DayMsg { get; set; } = "";
+        public int SecondsTimeout { get; set; } = 5;
+    }
 
 	public class Player
 	{
@@ -344,8 +349,8 @@ namespace TDVServer
 		private static Dictionary<String, Player> clientList;
 		private static Thread checkThread;
 		private static Object lockObject, fileLock, chatFileLocker, returnLock;
-		private static Dictionary<String, Game> gameList;
-		private static Dictionary<String, ChatRoom> chatRooms;
+		private static GameManager gameManager;
+		private static ChatManager chatManager;
 		private static TcpListener[] connections;
 		private static Thread inputThread;
 		private static LoggingLevels logLevel = LoggingLevels.indiscriminate;
@@ -439,12 +444,8 @@ namespace TDVServer
 				currentDay = DateTime.Now;
 				output(LoggingLevels.indiscriminate, "Initializing...");
 				clientList = new Dictionary<String, Player>();
-				gameList = new Dictionary<String, Game>();
-				chatRooms = new Dictionary<String, ChatRoom>();
-				createFFA();
-				createChatRoom("Foo Bar");
-				createChatRoom("For Your Kids");
-				createChatRoom("Admins", null, "adminsrule");
+				gameManager = new GameManager(clientList, (val) => modifiedClientList = val);
+				chatManager = new ChatManager(clientList);
 				checkThread = new Thread(startMonitoringForData);
 				for (int i = 0; i < ports.Length; i++) {
 					connections[i] = new TcpListener(IPAddress.Parse("0.0.0.0"),
@@ -498,7 +499,7 @@ namespace TDVServer
 				output(LoggingLevels.info, "New connection, call sign is " + callSign + ".");
 				//Custom logic to determine admin flag goes here
 				bool admin = false;
-				sendChatMessage(null, callSign + " has logged on.", MessageType.enterRoom, true);
+				chatManager.SendChatMessage(null, callSign + " has logged on.", MessageType.enterRoom, true);
 				String serverTag = Guid.NewGuid().ToString();
 				LoginMessages responses = LoginMessages.serverAssignedTag;
 				// Here, even if we have not set a message of the day, we send a second string to kepe things consistent.
@@ -662,7 +663,7 @@ namespace TDVServer
 							int numRooms = 0;
 							using (BinaryWriter wChats = new BinaryWriter(new MemoryStream())) {
 								wChats.Write((short)0);
-								foreach (ChatRoom chatRoom in chatRooms.Values) {
+								foreach (ChatRoom chatRoom in chatManager.GetPublicRooms()) {
 									if (chatRoom.type != RoomTypes.closed) {
 										wChats.Write(chatRoom.id);
 										wChats.Write(chatRoom.friendlyName);
@@ -678,12 +679,12 @@ namespace TDVServer
 
 						case CSCommon.cmd_joinChatRoom:
 							String joinChatId = rcvData.ReadString();
-							String joinPassword = (isPassworded(joinChatId)) ? rcvData.ReadString() : null;
-							bool joinedChat = joinChatRoom(tag, joinChatId, joinPassword);
+							String joinPassword = (chatManager.IsPassworded(joinChatId)) ? rcvData.ReadString() : null;
+							bool joinedChat = chatManager.JoinChatRoom(tag, joinChatId, joinPassword);
 							using (BinaryWriter joinChatW = new BinaryWriter(new MemoryStream())) {
 								joinChatW.Write(joinedChat);
 								if (joinedChat) {
-									ChatRoom roomToJoin = chatRooms[joinChatId];
+									ChatRoom roomToJoin = chatManager.GetRoom(joinChatId);
 									joinChatW.Write((short)(roomToJoin.getIds().Count - 1));
 									foreach (String playerID in roomToJoin.getIds()) {
 										if (playerID.Equals(tag))
@@ -697,15 +698,15 @@ namespace TDVServer
 							break;
 
 						case CSCommon.cmd_leaveChatRoom:
-							leaveRoom(tag, true);
+							chatManager.LeaveRoom(tag, true);
 							break;
 
 						case CSCommon.cmd_createChatRoom:
 							int createArg = rcvData.ReadByte();
 							if (createArg == 0)
-								createChatRoom(rcvData.ReadString(), tag, null);
+								chatManager.CreateChatRoom(rcvData.ReadString(), tag, null);
 							else
-								createChatRoom(rcvData.ReadString(), tag, rcvData.ReadString());
+								chatManager.CreateChatRoom(rcvData.ReadString(), tag, rcvData.ReadString());
 							break;
 
 						case CSCommon.cmd_getStats:
@@ -739,7 +740,7 @@ namespace TDVServer
 								clientList[tag].team = TeamColors.none;
 							else
 								clientList[tag].team = (TeamColors)rcvData.ReadInt32();
-							createdGame = createNewGame(tag, gameType);
+							createdGame = gameManager.CreateNewGame(tag, gameType);
 							sendMessage(nc + " Has created a new " + createdGame.getTitle() + ". The game is open to new players.", client);
 							break;
 
@@ -748,7 +749,7 @@ namespace TDVServer
 								int numberOfGames = 0;
 								gLWriter.Write((byte)0);
 								gLWriter.Write((byte)0);
-								foreach (Game g in gameList.Values) {
+								foreach (Game g in gameManager.GetGames()) {
 									if (g.type == Game.GameType.freeForAll || !g.isOpen(tag, 0))
 										continue;
 									numberOfGames++;
@@ -766,7 +767,7 @@ namespace TDVServer
 						case CSCommon.cmd_joinFreeForAll:
 							clientList[tag].entryMode = rcvData.ReadInt32();
 							sendMessage(clientList[tag].name + " has joined F F A", client);
-							joinFFA(tag);
+							gameManager.JoinFFA(tag);
 							break;
 
 						case CSCommon.cmd_joinGame:
@@ -775,7 +776,7 @@ namespace TDVServer
 							String joinId = rcvData.ReadString();
 							clientList[tag].team = ((joinLen == 2) ? TeamColors.none : (TeamColors)rcvData.ReadInt32());
 							clientList[tag].entryMode = rcvData.ReadInt32();
-							String gameName = joinGame(tag, joinId); //will send success flag to player.
+							String gameName = gameManager.JoinGame(tag, joinId); //will send success flag to player.
 							if (gameName != null)
 								sendMessage(n + " has joined a " + gameName, client);
 							break;
@@ -786,14 +787,13 @@ namespace TDVServer
 
 						case CSCommon.cmd_chat:
 							bool isPrivate = rcvData.ReadBoolean();
-							String chatMsg = null;
 							if (isPrivate) {
 								String recipient = rcvData.ReadString();
-								chatMsg = clientList[tag].name + " (private): " + rcvData.ReadString();
-								sendPrivateChatMessage(recipient, chatMsg);
+								String chatMsg = rcvData.ReadString();
+								chatManager.SendPrivateChatMessage(tag, recipient, chatMsg);
 							} else {
-								chatMsg = rcvData.ReadString();
-								sendChatMessage(tag, chatMsg, MessageType.normal, false);
+								String chatMsg = rcvData.ReadString();
+								chatManager.SendChatMessage(tag, chatMsg, MessageType.normal, false);
 							}
 							break;
 
@@ -846,9 +846,9 @@ namespace TDVServer
 				c.GetStream().Close();
 				c.Close();
 			}
-			leaveRoom(tag, false);
+			chatManager.LeaveRoom(tag, false);
 			clientList.Remove(tag);
-			sendChatMessage(null, name + " has left the server.", MessageType.leaveRoom, true);
+			chatManager.SendChatMessage(null, name + " has left the server.", MessageType.leaveRoom, true);
 			output(LoggingLevels.info, name + " disconnected");
 			modifiedClientList = true;
 		}
@@ -859,93 +859,6 @@ namespace TDVServer
 		/// <param name="tag">The GUID of the player creating the game. If null, the method will create an FFA game.</param>
 		/// <param name="type">The type of game to create</param>
 		/// <returns>The created game instance</returns>
-		private static Game createNewGame(String tag, Game.GameType type)
-		{
-			if (tag != null)
-				output(LoggingLevels.info, "Player " + getPlayerByID(tag).name + " is creating a new " + type.ToString() + " game.");
-			else
-				output(LoggingLevels.info, "Creating FFA game.");
-			String id = getID(gameList);
-			Game g = new Game(id, type);
-			g.gameFinished += gameFinishedEvent;
-			gameList.Add(id, g);
-			if (tag != null) {
-				g.add(clientList[tag]);
-				clientList.Remove(tag);
-				modifiedClientList = true;
-			}
-			output(LoggingLevels.debug, "ok");
-			return g;
-		}
-
-		/// <summary>
-		/// Creates the FFA game.
-		/// </summary>
-		private static void createFFA()
-		{
-			createNewGame(null, Game.GameType.freeForAll);
-		}
-
-		/// <summary>
-		/// An event to notify the server that a game has finished and should be flushed.
-		/// </summary>
-		/// <param name="sender">The game instance to flush</param>
-		private static void gameFinishedEvent(Game sender)
-		{
-			gameList.Remove(sender.id);
-			output(LoggingLevels.debug, "Game " + sender.id + " ended.");
-			sender.gameFinished -= gameFinishedEvent;
-		}
-
-		/// <summary>
-		/// Adds the client to the specified game.
-		/// </summary>
-		/// <param name="tag">The GUID of the client to add</param>
-		/// <param name="id">The ID of the game to add to.</param>
-		/// <returns>If the player could be added, returns the name of the game. else NULL.</returns>
-		private static String joinGame(String tag, String id)
-		{
-			output(LoggingLevels.info, "Player " + getPlayerByID(tag).name + " is attempting to join game " + id);
-			if (!gameList.ContainsKey(id)) {
-				output(LoggingLevels.error, "ERROR: id " + id + " doesn't exist.");
-				CSCommon.sendResponse(clientList[tag].client, false);
-				return null;
-			}
-			String name = gameList[id].ToString();
-			if (!gameList[id].isOpen(tag, clientList[tag].entryMode)) {
-				CSCommon.sendResponse(clientList[tag].client, false);
-				return null;
-			}
-			CSCommon.sendResponse(clientList[tag].client, true);
-			gameList[id].add(clientList[tag]);
-			clientList.Remove(tag);
-			modifiedClientList = true;
-			output(LoggingLevels.debug, "ok");
-			return name;
-		}
-
-		/// <summary>
-		/// Allows a pleyr to join the FFA game.
-		/// </summary>
-		/// <param name="tag">The GUID of the player to add to FFA</param>
-		/// <returns>True on success, false on failure</returns>
-		private static bool joinFFA(String tag)
-		{
-			foreach (Game g in gameList.Values) {
-				if (g.type == Game.GameType.freeForAll) {
-					g.add(clientList[tag]);
-					clientList.Remove(tag);
-					modifiedClientList = true;
-					return true;
-				}
-			}
-			return false;
-		}
-
-		/// <summary>
-		/// Closes the specified client and removes the player from the server.
-		/// </summary>
-		/// <param name="tag">The GUID of the player to remove</param>
 		private static void closeClientConnection(String tag)
 		{
 			Player p = getPlayerByID(tag);
@@ -1011,7 +924,19 @@ namespace TDVServer
 		/// </summary>
 		/// <param name="d">The collection to check against to make sure this ID doesn't exist</param>
 		/// <returns>An unused ID</returns>
-		private static String getID(IDictionary d)
+		public static double getPowerRatio(String tag)
+		{
+			return clientList[tag].power;
+		}
+
+		public static Player getPlayerByID(String tag)
+		{
+			Player p = null;
+			clientList.TryGetValue(tag, out p);
+			return p;
+		}
+
+		public static String getID(IDictionary d)
 		{
 			Random r = new Random();
 			bool validID = false;
@@ -1036,217 +961,19 @@ namespace TDVServer
 			return theID;
 		}
 
-		/// <summary>
-		/// Gets the Power Ratio for the given Client ID.
-		/// </summary>
-		/// <param name="tag">The GUID of the player to get the power ratio for</param>
-		/// <returns>The power ratio.</returns>
-		public static double getPowerRatio(String tag)
-		{
-			return clientList[tag].power;
-		}
+				private static void cleanUp()
 
-		/// <summary>
-		/// Sends a private message.
-		/// </summary>
-		/// <param name="target">The GUID of the player who is to receive the message</param>
-		/// <param name="message">The message to send</param>
-		private static void sendPrivateChatMessage(String target, String message)
-		{
-			Player p = getPlayerByID(target);
-			if (p != null)
-				CSCommon.sendData(p.client, CSCommon.buildCMDString(CSCommon.cmd_chat, (byte)MessageType.privateMessage, message));
-		}
+				{
 
-		/// <summary>
-		/// Sends a chat message to everyone in the room to which the player belongs.
-		/// </summary>
-		/// <param name="sender">The tag of the sender. If this message is from the server, this parameter should contain the id of the chat room to which to send the message</param>
-		/// <param name="message">The message to send</param>
-		/// <param name="type">The message type</param>
-		/// <param name="fromServer">True if the message is generated by the server (with no name prefix), and false otherwise</param>
-		private static void sendChatMessage(String sender, String message, MessageType type, bool fromServer)
-		{
-			ChatRoom room = null;
-			String chatId = null;
-			Player p = null;
-			if (fromServer)
-				chatId = sender;
-			else {
-				p = getPlayerByID(sender);
-				chatId = p.chatID;
-			}
-			if (!fromServer)
-				message = p.name + ": " + message;
+					try {
 
-			if (chatId == null)
-				propogate(CSCommon.buildCMDString(CSCommon.cmd_chat, (byte)type, message), (p == null) ? null : p.client);
-			else {
-				if (!chatRooms.TryGetValue(chatId, out room)) {
-					if (p != null)
-						CSCommon.sendData(p.client, CSCommon.buildCMDString(CSCommon.cmd_leaveChatRoom));
-					return;
-				} //if the chat room no longer exists.
-				foreach (String id in room.getIds()) {
-					if (!fromServer && sender.Equals(id))
-						continue; //so sender doesn't get their own message
-					CSCommon.sendData(clientList[id].client, CSCommon.buildCMDString(CSCommon.cmd_chat, (byte)type, message));
-				}
-			}
-			String writeMsg = "";
-			if (p != null)
-				writeMsg = p.name + Environment.NewLine + p.tag;
-			if (!String.IsNullOrEmpty(writeMsg))
-				writeMsg += Environment.NewLine;
-			if (room == null)
-				writeMsg += "Lobby";
-			else
-				writeMsg += room.friendlyName;
-			writeMsg += Environment.NewLine + message;
-			outputChat(writeMsg);
-		}
+						output(LoggingLevels.debug, "Cleaning up...");
 
-		/// <summary>
-		/// Gets the player belonging to the specified server tag. This method uses TryGetValue as a fail-safe.
-		/// </summary>
-		/// <param name="tag">The server tag.</param>
-		/// <returns>The player object associated with the tag, or null if not found.</returns>
-		private static Player getPlayerByID(String tag)
-		{
-			Player p = null;
-			clientList.TryGetValue(tag, out p);
-			return p;
-		}
+						gameManager.ForceEndAllGames(rebooting);
 
-		private static void createChatRoom(String friendlyName, String tag1, String tag2, String password)
-		{
-			String id = getID(chatRooms);
-			chatRooms.Add(id, new ChatRoom(id, friendlyName, tag1, tag2, password));
-			if (tag2 != null)
-				clientList[tag2].chatID = id;
-			if (tag1 != null) {
-				clientList[tag1].chatID = id;
-				sendChatMessage(id, "Room created", MessageType.enterRoom, true);
-			}
-		}
+						while (gameManager.GameCount() != 0)
 
-		/// <summary>
-		/// Creates a new chat room with no participants. This room will always be open.
-		/// </summary>
-		/// <param name="friendlyName">The display name</param>
-		private static void createChatRoom(String friendlyName)
-		{
-			createChatRoom(friendlyName, null, null, null);
-		}
-
-		/// <summary>
-		/// </summary>
-		/// <param name="tag1">The person who created the room</param>
-		/// <param name="tag2">The other participant in a two-way closed chat</param>
-		private static void createChatRoom(String tag1, String tag2)
-		{
-			createChatRoom(null, tag1, tag2, null);
-		}
-
-		///<summary>
-		///Creates a chat room with the friendly name, host (null for no host), and password (null for no password).
-		///</summary>
-		/// <param name="password">The password, or null for open</param>
-		private static void createChatRoom(String friendlyName, String tag, String password)
-		{
-			createChatRoom(friendlyName, tag, null, password);
-		}
-
-		/// <summary>
-		/// Joins a chat room.
-		/// </summary>
-		/// <param name="tag">The GUID of the player to join</param>
-		/// <param name="id">The id of the room to join</param>
-		/// <param name="password">Any password, null for no password. If the chatroom requires no password this parameter will be ignored</param>
-		/// <returns>True if the join was successful, false otherwise</returns>
-		private static bool joinChatRoom(String tag, String id, String password)
-		{
-			ChatRoom room = null;
-			if (!chatRooms.TryGetValue(id, out room))
-				return false;
-			if (room.password != null && !String.Equals(password, room.password))
-				return false;
-			output(LoggingLevels.info, "Player " + clientList[tag].name + " joined chat room " + room.friendlyName);
-			sendChatMessage(id, clientList[tag].name + " has joined the room!", MessageType.enterRoom, true);
-			sendToRoom(id, CSCommon.buildCMDString(CSCommon.cmd_addMember, tag, clientList[tag].name));
-			room.add(tag);
-			clientList[tag].chatID = id;
-			return true;
-		}
-
-		/// <summary>
-		/// Causes player to exit room.
-		/// </summary>
-		/// <param name="tag">The tag of the player wanting to leave</param>
-		/// <param name="playerAlive">True if the player is still on the server, false otherwise</param>
-		private static void leaveRoom(String tag, bool playerAlive)
-		{
-			ChatRoom room = null;
-			Player p = getPlayerByID(tag);
-			if (p == null)
-				return;
-			if (p.chatID == null)
-				return; //protect against potential multiple presses of "leave" button
-			if (!chatRooms.TryGetValue(p.chatID, out room))
-				return;
-			String id = room.id;
-			if (room.remove(tag)) //return true if this is the last member to be removed.
-			{
-				chatRooms.Remove(room.id);
-				output(LoggingLevels.info, "Chat room " + room.friendlyName + " was closed because the last member left.");
-			}
-			output(LoggingLevels.info, "Player " + p.name + " left chat room " + room.friendlyName);
-			if (playerAlive)
-				CSCommon.sendData(p.client, CSCommon.buildCMDString(CSCommon.cmd_leaveChatRoom));
-			p.chatID = null;
-			sendChatMessage(id, p.name + " has left the room!", MessageType.leaveRoom, true);
-			sendToRoom(id, CSCommon.buildCMDString(CSCommon.cmd_removeMember, tag));
-		}
-
-		/// <summary>
-		/// Sends the data to the specified room.
-		/// </summary>
-		/// <param name="id">The id of the room</param>
-		/// <param name="data">The MemoryStream containing the data</param>
-		private static void sendToRoom(String id, MemoryStream data)
-		{
-			ChatRoom c;
-			Player p;
-			if (chatRooms.TryGetValue(id, out c)) {
-				foreach (String s in c.getIds()) {
-					if ((p = getPlayerByID(s)) != null)
-						CSCommon.sendData(p.client, data);
-				}
-			}
-			data.Close();
-		}
-
-		/// <summary>
-		/// Determines if the given chat room is password protected.
-		/// </summary>
-		/// <param name="id">The id to check</param>
-		/// <returns>True if protected, false otherwise</returns>
-		private static bool isPassworded(String id)
-		{
-			ChatRoom room = null;
-			if (!chatRooms.TryGetValue(id, out room))
-				return false;
-			return room.type == RoomTypes.password;
-		}
-
-		private static void cleanUp()
-		{
-			try {
-				output(LoggingLevels.debug, "Cleaning up...");
-				foreach (Game g in gameList.Values)
-					g.setForceGameEnd((rebooting) ? null : "there was a problem with the server.");
-				while (gameList.Count != 0)
-					Thread.Sleep(0);
+							Thread.Sleep(0);
 				output(LoggingLevels.debug, "All games ended.");
 				for (int i = 0; i < connections.Length; i++)
 					connections[i].Stop();
@@ -1293,11 +1020,10 @@ namespace TDVServer
 		private static void sendCriticalMessage(String message)
 		{
 			output(LoggingLevels.messages, message);
-			sendChatMessage(null, message, MessageType.critical, true);
-			foreach (ChatRoom room in chatRooms.Values)
-				sendChatMessage(room.id, message, MessageType.critical, true);
-			foreach (Game g in gameList.Values)
-				g.queueCriticalMessage(message);
+			chatManager.SendChatMessage(null, message, MessageType.critical, true);
+			foreach (ChatRoom room in chatManager.GetAllRooms())
+				chatManager.SendChatMessage(room.id, message, MessageType.critical, true);
+			gameManager.QueueCriticalMessageInGames(message);
 		}
 
 		public static void createLogs()
@@ -1423,20 +1149,41 @@ namespace TDVServer
 
 		private static void saveSettings()
 		{
-			BinaryWriter s = new BinaryWriter(new FileStream("settings", FileMode.Create));
-			s.Write(dayMsg);
-			s.Write(CSCommon.secondsTimeout);
-			s.Close();
+            var settings = new ServerSettings
+            {
+                DayMsg = dayMsg,
+                SecondsTimeout = CSCommon.secondsTimeout
+            };
+            string jsonString = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText("settings.json", jsonString);
+            output(LoggingLevels.info, "Settings saved to settings.json.");
 		}
 
 		private static void loadSettings()
 		{
-			if (!File.Exists("settings"))
+			if (!File.Exists("settings.json"))
+            {
+                output(LoggingLevels.info, "settings.json not found. Using default settings and creating a new one.");
+                saveSettings(); // Create default settings.json
 				return;
-			BinaryReader s = new BinaryReader(new FileStream("settings", FileMode.Open));
-			setMessage(s.ReadString());
-			CSCommon.initialize(s.ReadInt32());
-			s.Close();
+            }
+            try
+            {
+                string jsonString = File.ReadAllText("settings.json");
+                ServerSettings settings = JsonSerializer.Deserialize<ServerSettings>(jsonString);
+                if (settings != null)
+                {
+                    dayMsg = settings.DayMsg;
+                    CSCommon.initialize(settings.SecondsTimeout);
+                    output(LoggingLevels.info, "Settings loaded from settings.json.");
+                }
+            }
+            catch (Exception e)
+            {
+                output(LoggingLevels.error, "Error loading settings from settings.json: " + e.Message + e.StackTrace);
+                // Optionally re-save defaults if loading fails to fix potentially corrupt file
+                saveSettings();
+            }
 		}
 
 		/// <summary>

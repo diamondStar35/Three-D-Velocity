@@ -1441,8 +1441,11 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 			DSound.PlaySound(enr, true, false);
 			String name = mainGUI.receiveInput();
 			enr.stop();
-			if (name == null)
+			if (String.IsNullOrWhiteSpace(name))
+			{
+				SapiSpeech.speak("Room name cannot be empty. Canceled.", SapiSpeech.SpeakFlag.interruptable);
 				return;
+			}
 			String password = null;
 			int pwd = sVGenerateMenu("pw3.wav", new String[] { "kd3.wav", "kd4.wav" }, getServerItems());
 			if (pwd == -1)

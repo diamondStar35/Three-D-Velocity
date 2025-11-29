@@ -680,6 +680,11 @@ namespace TDV
 
 		public static void sendData(MemoryStream data)
 		{
+			if (client == null || !client.Connected)
+			{
+				SapiSpeech.speak("Not connected to server.", SapiSpeech.SpeakFlag.interruptable);
+				return;
+			}
 			lock (dataLocker)
 				CSCommon.sendData(client, data);
 		}
