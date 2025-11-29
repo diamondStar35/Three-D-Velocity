@@ -362,6 +362,18 @@ namespace TDVServer
 			output(LoggingLevels.indiscriminate, "Running server version " + serverVersion);
 			int cliTrack = 0;
 
+			foreach (string arg in args)
+			{
+				if (arg.Equals("-h") || arg.Equals("--help"))
+				{
+					Console.WriteLine("TDVServer Command Line Arguments:");
+					Console.WriteLine("  --log <levels>   : Enable logging for specific levels (comma-separated).");
+					Console.WriteLine("                     Available levels: messages, info, error, chat, debug.");
+					Console.WriteLine("                     Example: --log info,debug");
+					Console.WriteLine("  -h, --help       : Show this help message and exit.");
+					return; // Exit application after showing help
+				}
+			}
 			while (cliTrack < args.Length) {
 				String arg = args[cliTrack].ToLower();
 				if (arg.Equals("--log")) {
@@ -837,7 +849,7 @@ namespace TDVServer
 			leaveRoom(tag, false);
 			clientList.Remove(tag);
 			sendChatMessage(null, name + " has left the server.", MessageType.leaveRoom, true);
-			output(LoggingLevels.debug, name + " disconnected");
+			output(LoggingLevels.info, name + " disconnected");
 			modifiedClientList = true;
 		}
 
@@ -850,9 +862,9 @@ namespace TDVServer
 		private static Game createNewGame(String tag, Game.GameType type)
 		{
 			if (tag != null)
-				output(LoggingLevels.debug, "creating game at request of " + tag);
+				output(LoggingLevels.info, "Player " + getPlayerByID(tag).name + " is creating a new " + type.ToString() + " game.");
 			else
-				output(LoggingLevels.debug, "Creating FFA.");
+				output(LoggingLevels.info, "Creating FFA game.");
 			String id = getID(gameList);
 			Game g = new Game(id, type);
 			g.gameFinished += gameFinishedEvent;
@@ -893,7 +905,7 @@ namespace TDVServer
 		/// <returns>If the player could be added, returns the name of the game. else NULL.</returns>
 		private static String joinGame(String tag, String id)
 		{
-			output(LoggingLevels.debug, "Joining game " + id + " using client " + tag);
+			output(LoggingLevels.info, "Player " + getPlayerByID(tag).name + " is attempting to join game " + id);
 			if (!gameList.ContainsKey(id)) {
 				output(LoggingLevels.error, "ERROR: id " + id + " doesn't exist.");
 				CSCommon.sendResponse(clientList[tag].client, false);
@@ -1159,6 +1171,7 @@ namespace TDVServer
 				return false;
 			if (room.password != null && !String.Equals(password, room.password))
 				return false;
+			output(LoggingLevels.info, "Player " + clientList[tag].name + " joined chat room " + room.friendlyName);
 			sendChatMessage(id, clientList[tag].name + " has joined the room!", MessageType.enterRoom, true);
 			sendToRoom(id, CSCommon.buildCMDString(CSCommon.cmd_addMember, tag, clientList[tag].name));
 			room.add(tag);
@@ -1183,7 +1196,11 @@ namespace TDVServer
 				return;
 			String id = room.id;
 			if (room.remove(tag)) //return true if this is the last member to be removed.
+			{
 				chatRooms.Remove(room.id);
+				output(LoggingLevels.info, "Chat room " + room.friendlyName + " was closed because the last member left.");
+			}
+			output(LoggingLevels.info, "Player " + p.name + " left chat room " + room.friendlyName);
 			if (playerAlive)
 				CSCommon.sendData(p.client, CSCommon.buildCMDString(CSCommon.cmd_leaveChatRoom));
 			p.chatID = null;

@@ -198,129 +198,138 @@ namespace TDV
 			set { m_serverTag = value; }
 		}
 
+		private static bool isConnecting = false;
 		public static bool connect(String host, String callSign, int port)
 		{
-				  ports = new int[]{4444, 4445, 4567, 6969, 32000 };
-			if (dataLocker == null)
-				dataLocker = new object();
-			if (chatLocker == null)
-				chatLocker = new object();
-			if (chatMessages == null)
-				chatMessages = new List<String>();
-			if (members == null)
-				members = new List<ChatRoomMember>();
-			chatPointer = 0;
-			chatSound = DSound.LoadSound(DSound.SoundPath + "\\chat1.wav");
-			chatEnterSound = DSound.LoadSound(DSound.SoundPath + "\\chat2.wav");
-			chatLeaveSound = DSound.LoadSound(DSound.SoundPath + "\\chat3.wav");
-			privateMessageSound = DSound.LoadSound(DSound.SoundPath + "\\chat4.wav");
-			serverMessageSound = DSound.LoadSound(DSound.SoundPath + "\\chat5.wav");
-			senders = new Dictionary<string, ClientRecord>();
-			waitingForResponse = new AutoResetEvent(false);
-			isConnected = false; error = false;
-			live = false;
-			client = new TcpClient();
-			int i = (port != 0) ? Array.IndexOf(ports, port) : 0;
-			int time = 0;
-
-			while (i < ports.Length)
-			{
-				error = false;
-				time = 0;
-				client.BeginConnect(host, port = ports[i++],
-					new AsyncCallback(connectedEvent), null);
-				while (!isConnected && !error)
-				{
-					Application.DoEvents();
-					if (time >= 3000)
-					{
-						endConnect(); //stop trying to connect on this port
-						break;
-					}
-					time += 100;
-					Thread.Sleep(100);
-				}
-				if (isConnected)
-					break;
-			} //search ports
-			if (!isConnected || error)
+			if (isConnecting)
 				return false;
-			Options.writeToFile();
+			isConnecting = true;
 			try
 			{
-				using (BinaryWriter writer = new BinaryWriter(new MemoryStream()))
+				ports = new int[] { 4444, 4445, 4567, 6969, 32000 };
+				if (dataLocker == null)
+					dataLocker = new object();
+				if (chatLocker == null)
+					chatLocker = new object();
+				if (chatMessages == null)
+					chatMessages = new List<String>();
+				if (members == null)
+					members = new List<ChatRoomMember>();
+				chatPointer = 0;
+				chatSound = DSound.LoadSound(DSound.SoundPath + "\\chat1.wav");
+				chatEnterSound = DSound.LoadSound(DSound.SoundPath + "\\chat2.wav");
+				chatLeaveSound = DSound.LoadSound(DSound.SoundPath + "\\chat3.wav");
+				privateMessageSound = DSound.LoadSound(DSound.SoundPath + "\\chat4.wav");
+				serverMessageSound = DSound.LoadSound(DSound.SoundPath + "\\chat5.wav");
+				senders = new Dictionary<string, ClientRecord>();
+				waitingForResponse = new AutoResetEvent(false);
+				isConnected = false; error = false;
+				live = false;
+				int i = (port != 0) ? Array.IndexOf(ports, port) : 0;
+				int time = 0;
+				while (i < ports.Length)
 				{
-					writer.Write(callSign);
-					writer.Flush();
-					CSCommon.sendData(client, writer);
-				} //using
-				LoginMessages resp = LoginMessages.none;
-				using (BinaryReader reader = new BinaryReader(CSCommon.getData(client, 5000)))
-				{
-					resp = (LoginMessages)reader.ReadInt32();
-					m_messages = resp;
-					if ((resp & LoginMessages.serverAssignedTag) == LoginMessages.serverAssignedTag)
+					client = new TcpClient();
+					error = false;
+					time = 0;
+					client.BeginConnect(host, port = ports[i++],
+						new AsyncCallback(connectedEvent), null);
+					while (!isConnected && !error)
 					{
-						serverTag = reader.ReadString();
-						String messageOfTheDay = reader.ReadString();
-						if ((resp & LoginMessages.messageOfTheDay) == LoginMessages.messageOfTheDay)
+						Application.DoEvents();
+						if (time >= 3000)
 						{
-							// We now need to speak the message and then show an input box for the user to
-							// press ENTER to continue. This is because some screen readers
-							// Don't have a way to stop the running thread.
-							SapiSpeech.speak("[Welcome message]: " + messageOfTheDay + " (press ENTER to continue)", SapiSpeech.SpeakFlag.interruptable);
-							Common.mainGUI.receiveInput().Trim();
+							client.Close(); //stop trying to connect on this port
+							break;
 						}
-							System.Diagnostics.Trace.WriteLine("Server sent tag: " + serverTag);
+						time += 100;
+						Thread.Sleep(100);
 					}
-				} //using
-				if ((resp & LoginMessages.demo) == LoginMessages.demo)
-					BPCSharedComponent.ExtendedAudio.DSound.playAndWait(BPCSharedComponent.ExtendedAudio.DSound.NSoundPath + "\\cd" + Common.getRandom(1, 2) + ".wav");
-				if ((resp & LoginMessages.noCallSign) == LoginMessages.noCallSign)
-					BPCSharedComponent.ExtendedAudio.DSound.playAndWait(BPCSharedComponent.ExtendedAudio.DSound.NSoundPath + "\\ncs.wav");
-				if ((resp & LoginMessages.badVersion) == LoginMessages.badVersion)
-				{
-					SapiSpeech.speak("There is a newer version of TDV available. Please update before logging on.", SapiSpeech.SpeakFlag.noInterrupt);
+					if (isConnected)
+						break;
+				} //search ports
+				if (!isConnected || error)
 					return false;
-				}
-				if ((resp & LoginMessages.wrongCredentials) == LoginMessages.wrongCredentials)
+				Options.writeToFile();
+				try
 				{
-					BPCSharedComponent.ExtendedAudio.DSound.playAndWait(BPCSharedComponent.ExtendedAudio.DSound.NSoundPath + "\\pw2.wav");
-					return false;
+					using (BinaryWriter writer = new BinaryWriter(new MemoryStream()))
+					{
+						writer.Write(callSign);
+						writer.Flush();
+						CSCommon.sendData(client, writer);
+					} //using
+					LoginMessages resp = LoginMessages.none;
+					using (BinaryReader reader = new BinaryReader(CSCommon.getData(client, 5000)))
+					{
+						resp = (LoginMessages)reader.ReadInt32();
+						m_messages = resp;
+						if ((resp & LoginMessages.serverAssignedTag) == LoginMessages.serverAssignedTag)
+						{
+							serverTag = reader.ReadString();
+							String messageOfTheDay = reader.ReadString();
+							if ((resp & LoginMessages.messageOfTheDay) == LoginMessages.messageOfTheDay)
+							{
+								// We now need to speak the message and then show an input box for the user to
+								// press ENTER to continue. This is because some screen readers
+								// Don't have a way to stop the running thread.
+								SapiSpeech.speak("[Welcome message]: " + messageOfTheDay + " (press ENTER to continue)", SapiSpeech.SpeakFlag.interruptable);
+								Common.mainGUI.receiveInput().Trim();
+							}
+							System.Diagnostics.Trace.WriteLine("Server sent tag: " + serverTag);
+						}
+					} //using
+					if ((resp & LoginMessages.demo) == LoginMessages.demo)
+						BPCSharedComponent.ExtendedAudio.DSound.playAndWait(BPCSharedComponent.ExtendedAudio.DSound.NSoundPath + "\\cd" + Common.getRandom(1, 2) + ".wav");
+					if ((resp & LoginMessages.noCallSign) == LoginMessages.noCallSign)
+						BPCSharedComponent.ExtendedAudio.DSound.playAndWait(BPCSharedComponent.ExtendedAudio.DSound.NSoundPath + "\\ncs.wav");
+					if ((resp & LoginMessages.badVersion) == LoginMessages.badVersion)
+					{
+						SapiSpeech.speak("There is a newer version of TDV available. Please update before logging on.", SapiSpeech.SpeakFlag.noInterrupt);
+						return false;
+					}
+					if ((resp & LoginMessages.wrongCredentials) == LoginMessages.wrongCredentials)
+					{
+						BPCSharedComponent.ExtendedAudio.DSound.playAndWait(BPCSharedComponent.ExtendedAudio.DSound.NSoundPath + "\\pw2.wav");
+						return false;
+					}
 				}
-			}
-			catch (IOException)
-			{
-				error = true;
-			}
-			catch (TimeoutException)
-			{
-				error = true;
-			}
-			if (error)
-				return false;
+				catch (IOException)
+				{
+					error = true;
+				}
+				catch (TimeoutException)
+				{
+					error = true;
+				}
+				if (error)
+					return false;
 
-			if (log)
-				theFile = new StreamWriter(Addendums.File.appPath + "\\server_output.log");
-			live = true;
-			processThread = new Thread(processRCV);
-			processThread.Start();
-			return true;
+				if (log)
+					theFile = new StreamWriter(Addendums.File.appPath + "\\server_output.log");
+				live = true;
+				processThread = new Thread(processRCV);
+				processThread.Start();
+				return true;
+			}
+			finally
+			{
+				isConnecting = false;
+			}
 		}
 
-		private static void connectedEvent(IAsyncResult result)
-		{
-			try
-			{
-				client.EndConnect(result);
-				isConnected = true;
-			}
-			catch (SocketException)
-			{
-				error = true;
-			}
-		}
-
+				private static void connectedEvent(IAsyncResult result)
+				{
+					try
+					{
+						client.EndConnect(result);
+						isConnected = true;
+					}
+					catch (Exception)
+					{
+						error = true;
+					}
+				}
 		/// <param name="forceUpdate">Set to true if you want to send the data, even if it is a duplicate. This is useful if you want to send
 		/// the final data string to the server.</param>
 		public static void sendObjectUpdate(MemoryStream stream, String id, bool forceUpdate)
