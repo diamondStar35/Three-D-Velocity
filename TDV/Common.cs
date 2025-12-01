@@ -287,12 +287,12 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 		/// <returns>The index of the chosen option.</returns>
 		public static int GenerateMenu(string intro, string[] menu, ExtraItem[] keys)
 		{
-			return sVGenerateMenu(intro, menu, 0, null, keys, true);
+			return sVGenerateMenu(intro, menu, menu, 0, null, keys, true);
 		}
 
 		public static int GenerateMenu(string intro, string[] menu, int index, ExtraItem[] keys)
 		{
-			return sVGenerateMenu(intro, menu, index, null, keys, true);
+			return sVGenerateMenu(intro, menu, menu, index, null, keys, true);
 		}
 
 		public static int GenerateMenu(string intro, string[] menu, int index)
@@ -315,13 +315,14 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 		///  Generates a self-voiced menu using the specified intro, menu options, position index, path, key bindings, and SAPI flag.
 		/// </summary>
 		/// <param name="intro">A string of a wave file path for the introduction, or a text prompt if this menu is voiced by SAPI.</param>
-		/// <param name="menu">An array of strings resembling the menu options.</param>
+		/// <param name="sv_menu">An array of strings resembling the menu options for self-voicing (audio files).</param>
+		/// <param name="sr_menu">An array of strings resembling the menu options for screen readers (text).</param>
 		/// <param name="menuPos">The index on which the menu should start, zero-based.</param>
 		/// <param name="nPath">The prepended path.</param>
 		/// <param name="keys">An ExtraItem structure array populated with extra command that can be done inside a menu.</param>
 		/// <param name="sapi">True if this menu should be voiced by SAPI, false otherwise.</param>
 		/// <returns>The menu index on which ENTER was pressed.</returns>
-		public static int sVGenerateMenu(string intro, string[] menu, int menuPos, String nPath, ExtraItem[] keys, bool sapi)
+		public static int sVGenerateMenu(string intro, string[] sv_menu, string[] sr_menu, int menuPos, String nPath, ExtraItem[] keys, bool sapi)
 		{
 			bool justEntered = true; // Used for screen reader menus so the prompt isn't cut off
 			if (menuWrapSound == null) {
@@ -337,7 +338,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 			bool HasSaid = false;
 			SapiSpeech.purge();
 			SelfVoice.purge(true);
-			int length = menu.Length;
+			int length = sr_menu.Length;
 			int max = length - 1;
 			SelfVoice.nStop = false;
 			if (!string.IsNullOrEmpty(intro)) {
@@ -362,7 +363,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 			DXInput.resetKeys();
 			DXInput.resetJSB();
 			//prevents menu from starting on blank option
-			while (menu[menuPos].Equals("")) {
+			while (sr_menu[menuPos].Equals("")) {
 				menuPos++;
 			}
 
@@ -381,7 +382,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 						wrap = true;
 					}
 
-					while (menu[menuPos].Equals("")) {
+					while (sr_menu[menuPos].Equals("")) {
 						if (--menuPos < 0) {
 							menuPos = max;
 							wrap = true;
@@ -394,7 +395,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 					justEntered = false;
 					wrap = (menuPos = (menuPos + 1) % length) == 0;
 
-					while (menu[menuPos].Equals(""))
+					while (sr_menu[menuPos].Equals(""))
 						wrap = (menuPos = (menuPos + 1) % length) == 0;
 					HasSaid = false;
 				}
@@ -402,7 +403,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 				if (DXInput.isFirstPress(Key.Home, false)) {
 					justEntered = false;
 					menuPos = 0;
-					while (menu[menuPos].Equals(""))
+					while (sr_menu[menuPos].Equals(""))
 						menuPos++;
 					HasSaid = false;
 				}
@@ -410,7 +411,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 				if (DXInput.isFirstPress(Key.End, false)) {
 					justEntered = false;
 					menuPos = max;
-					while (menu[menuPos].Equals(""))
+					while (sr_menu[menuPos].Equals(""))
 						menuPos--;
 
 					HasSaid = false;
@@ -433,14 +434,23 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 					if (!sapi) {
 						if (nPath != null)
 							SelfVoice.setPathTo(nPath);
-						if (menu[menuPos].IndexOf("\\") >= 0)
-							SelfVoice.NLS(menu[menuPos], true, true);
+						
+						string audioFile = sv_menu[menuPos];
+						string fullAudioPath = audioFile.IndexOf("\\") >= 0 ? audioFile : DSound.NSoundPath + "\\" + audioFile;
+
+						if (File.Exists(fullAudioPath))
+						{
+							SelfVoice.NLS(fullAudioPath, true, true);
+						}
 						else
-							SelfVoice.NLS(DSound.NSoundPath + "\\" + menu[menuPos], true, true);
+						{
+							if (!justEntered) SapiSpeech.purge();
+							SapiSpeech.speak(sr_menu[menuPos]);
+						}
 					} else { //if sapi
 						if (!justEntered)
 							SapiSpeech.purge();
-						SapiSpeech.speak(menu[menuPos]);
+						SapiSpeech.speak(sr_menu[menuPos]);
 					}
 					justEntered = false;
 					HasSaid = true;
@@ -459,7 +469,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 
 		public static int sVGenerateMenu(string intro, string[] menu, int menuPos, String nPath)
 		{
-			return sVGenerateMenu(intro, menu, 0, nPath, null, false);
+			return sVGenerateMenu(intro, menu, menu, 0, nPath, null, false);
 		}
 
 
@@ -472,7 +482,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 		/// <returns>The menu index on which ENTER was pressed.</returns>
 		public static int sVGenerateMenu(string intro, string[] menu, int menuPos)
 		{
-			return sVGenerateMenu(intro, menu, menuPos, null, null, false);
+			return sVGenerateMenu(intro, menu, menu, menuPos, null, null, false);
 		}
 
 		/// <summary>
@@ -485,7 +495,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 		/// <returns>The menu index on which ENTER was pressed.</returns>
 		public static int sVGenerateMenu(string intro, string[] menu, int menuPos, ExtraItem[] keys)
 		{
-			return sVGenerateMenu(intro, menu, menuPos, null, keys, false);
+			return sVGenerateMenu(intro, menu, menu, menuPos, null, keys, false);
 		}
 
 		/// <summary>
@@ -508,7 +518,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 		/// <returns>The menu index on which ENTER was pressed.</returns>
 		public static int sVGenerateMenu(String intro, String[] menu, ExtraItem[] keys)
 		{
-			return sVGenerateMenu(intro, menu, 0, keys);
+			return sVGenerateMenu(intro, menu, menu, 0, null, keys, false);
 		}
 
 		public static float convertToKNOTS(float miles)
@@ -753,13 +763,16 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 		/// </summary>
 		private static void buildOnlineMenu()
 		{
-			String menuIntro = Common.returnSvOrSr(() => "c3.wav", () => "You're now in the hangar.", Options.menuVoiceMode);
-			String[] topLevelMenu = Common.returnSvOrSr(() => new string[] { "menuc_1.wav", "menuc_2.wav", "menuc_3.wav",
+			string sv_menuIntro = "c3.wav";
+			string sr_menuIntro = "You're now in the hangar.";
+			string[] sv_topLevelMenu = { "menuc_1.wav", "menuc_2.wav", "menuc_3.wav",
 				(Options.preorder) ? "menuc_4.wav":"",
 				(Options.preorder) ? "menuc_5.wav":"", "menuc_6.wav", "menuc_7.wav"
-			}, () => new string[] { "Connect to the free-for-all game", "Connect to an existing game", "Start a new game",
+			};
+			string[] sr_topLevelMenu = { "Connect to the free-for-all game", "Connect to an existing game", "Start a new game",
 				"", "", "Join chat room", "Create chat room"
-			}, Options.menuVoiceMode);
+			};
+
 			bool exitOnline = false;
 			bool startedMusic = false;
 			int choice = 0;
@@ -778,10 +791,21 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 						exitOnline = true;
 
 					if (!Client.spectatorPending)
-						choice = Common.returnSvOrSr(() => sVGenerateMenu(menuIntro, topLevelMenu, getServerItems()), () => GenerateMenu(menuIntro, topLevelMenu, getServerItems()), Options.menuVoiceMode);
+					{
+						if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+						{
+							choice = sVGenerateMenu(sv_menuIntro, sv_topLevelMenu, sr_topLevelMenu, choice, null, getServerItems(), false);
+						}
+						else
+						{
+							choice = GenerateMenu(sr_menuIntro, sr_topLevelMenu, choice, getServerItems());
+						}
+					}
 					else
 						choice = 0; //enter FFA
-					menuIntro = null; //Only say menu prompt first time user enters hangar
+					
+					sv_menuIntro = null; //Only say menu prompt first time user enters hangar
+					sr_menuIntro = null;
 					switch (choice) {
 						case 0: //join FFA
 							Client.joinFFA();
@@ -795,8 +819,6 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 								break;
 							}
 
-							//for menu, we just need the description;
-							//the ID is sent by the client to the server but is irrelevant to the user.
 							String[] menu = new String[listLength];
 							GameInfoArgs[] gamesList = new GameInfoArgs[listLength];
 							for (int k = 0; k < listLength; k++) {
@@ -804,8 +826,6 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 								menu[k] = gamesList[k].getDescription();
 							}
 							int option = GenerateMenu("", menu, getServerItems());
-							//Next, send the ID to the server.
-							//This is the id of the game we want to connect to.
 							if (option == -1)
 								break;
 							Options.mode = gamesList[option].getGameType();
@@ -814,17 +834,25 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 								break;
 							int team = -1;
 							BinaryReader resp = null;
-							if (Options.mode == Options.Modes.teamDeath) { //if not spectator
-								if (entryMode != 1) { //if not spectator
-									team = sVGenerateMenu("menuc_3_2_i.wav", new String[] { "menuc_3_2_1.wav", "menuc_3_2_2.wav",
-						  "menuc_3_2_3.wav", "menuc_3_2_4.wav"}, getServerItems());
+							if (Options.mode == Options.Modes.teamDeath) { 
+								if (entryMode != 1) { 
+									string[] sv_team = { "menuc_3_2_1.wav", "menuc_3_2_2.wav", "menuc_3_2_3.wav", "menuc_3_2_4.wav"};
+									string[] sr_team = { "Blue team", "Green team", "Red team", "Yellow team" };
+									if(Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+									{
+										team = sVGenerateMenu("menuc_3_2_i.wav", sv_team, sr_team, 0, null, getServerItems(), false);
+									}
+									else
+									{
+										team = GenerateMenu("What team would you like to play on?", sr_team, 0, getServerItems());
+									}
+
 									if (team == -1)
 										break;
 									Options.team = (Projector.TeamColors)team;
-								} //if ! spectator
+								} 
 								resp = Client.getResponse(CSCommon.buildCMDString(CSCommon.cmd_joinGame, (byte)3, gamesList[option].getId(), team, entryMode));
-							} else // no team death
-								   // The server will return true if the player has been added to the game.
+							} else 
 								resp = Client.getResponse(CSCommon.buildCMDString(CSCommon.cmd_joinGame, (byte)2, gamesList[option].getId(), entryMode));
 							if (resp.ReadBoolean())
 								Interaction.inOnlineGame = true;
@@ -832,19 +860,42 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 
 						case 2: //create game
 							Client.gameHost = true;
-							int t = Common.returnSvOrSr(() => sVGenerateMenu("", new String[] { "menuc_3_1.wav", "menuc_3_2.wav" }, getServerItems()), () => GenerateMenu("", new string[] { "Death match", "Team death" }, getServerItems()), Options.menuVoiceMode); ;
+							int t;
+							string[] sv_gameType = { "menuc_3_1.wav", "menuc_3_2.wav" };
+							string[] sr_gameType = { "Death match", "Team death" };
+							if(Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+							{
+								t = sVGenerateMenu("", sv_gameType, sr_gameType, 0, null, getServerItems(), false);
+							}
+							else
+							{
+								t = GenerateMenu("", sr_gameType, 0, getServerItems());
+							}
+
 							if (t == -1)
 								break;
 							bool inGame = true;
 							switch (t) {
-								case 0: //create one-on-one game
+								case 0: 
 									Options.mode = Options.Modes.oneOnOne;
 									Client.sendData(CSCommon.buildCMDString(CSCommon.cmd_createGame, (byte)1, (int)Options.Modes.oneOnOne));
 									break;
 
-								case 1: //create team death
+								case 1: 
 									Options.mode = Options.Modes.teamDeath;
-									int color = Common.returnSvOrSr(() =>  sVGenerateMenu("menuc_3_2_i.wav", new String[] { "menuc_3_2_1.wav", "menuc_3_2_2.wav", "menuc_3_2_3.wav", "menuc_3_2_4.wav" }, getServerItems()), () => GenerateMenu("What team would you like to play on?", new string[] { "Blue team", "Green team", "Red team", "Yellow team" }, getServerItems()), Options.menuVoiceMode);
+									int color;
+									string[] sv_color = { "menuc_3_2_1.wav", "menuc_3_2_2.wav", "menuc_3_2_3.wav", "menuc_3_2_4.wav" };
+									string[] sr_color = { "Blue team", "Green team", "Red team", "Yellow team" };
+
+									if(Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+									{
+										color = sVGenerateMenu("menuc_3_2_i.wav", sv_color, sr_color, 0, null, getServerItems(), false);
+									}
+									else
+									{
+										color = GenerateMenu("What team would you like to play on?", sr_color, 0, getServerItems());
+									}
+
 									if (color == -1) {
 										inGame = false;
 										break;
@@ -852,15 +903,16 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 									Options.team = (Projector.TeamColors)color;
 									Client.sendData(CSCommon.buildCMDString(CSCommon.cmd_createGame, (byte)2, (int)Options.Modes.teamDeath, color));
 									break;
-							} //switch
+							} 
 							if (inGame)
 								Interaction.inOnlineGame = true;
 							break;
 
 						case 3: //store
-							String[] sOptions = new String[] { "menuc_4_1.wav", "menuc_4_2.wav" };
+							String[] sOptions_sv = { "menuc_4_1.wav", "menuc_4_2.wav" };
+							String[] sOptions_sr = { "View Add-ons", "Browse My Add-ons" };
 							int sIndex = 0;
-							while ((sIndex = sVGenerateMenu(null, sOptions)) != -1) {
+							while ((sIndex = sVGenerateMenu(null, sOptions_sv, sOptions_sr, 0, null, null, false)) != -1) {
 								switch (sIndex) {
 									case 0: //view add-ons
 										ViewAddOnArgs[] vA = null;
@@ -876,14 +928,14 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 												vA[vI] = new ViewAddOnArgs(viewAddOns.ReadInt32(), viewAddOns.ReadString());
 												vA2[vI] = vA[vI].getDescription();
 											}
-										} //using
+										} 
 										int vO = GenerateMenu(vPrompt, vA2, getServerItems());
 										if (vO == -1)
 											break;
 										using (BinaryReader vResp = Client.getResponse(CSCommon.buildCMDString(CSCommon.cmd_buyAddOn, vA[vO].getId()))) {
 											if (!vResp.ReadBoolean())
 												SapiSpeech.speak(vResp.ReadString(), SapiSpeech.SpeakFlag.noInterrupt);
-										} //using
+										} 
 										break;
 
 									case 1: //browse my add-ons
@@ -901,32 +953,41 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 												vMA[vMI] = new ViewAddOnArgs(vMReader.ReadInt32(), vMReader.ReadString(), vMReader.ReadBoolean(), vMReader.ReadBoolean(), vMReader.ReadBoolean(), vMReader.ReadBoolean());
 												vMA2[vMI] = vMA[vMI].getDescription();
 											}
-										} //using
+										} 
 										int vMO = (myAddonsLength != 0) ? GenerateMenu(null, vMA2, getServerItems()) : -1;
 										if (vMO == -1)
 											break;
 										int vMO2 = 0;
-										String[] vMA3 = new String[] { "", "" };
+										String[] vMA3_sv = { "", "" };
+										String[] vMA3_sr = { "", "" };
 										if (vMA[vMO].isEnabledOrDisabledType())
-											vMA3[0] = (vMA[vMO].showEnableText()) ? "a4.wav" : "a3.wav";
+										{
+											vMA3_sv[0] = (vMA[vMO].showEnableText()) ? "a4.wav" : "a3.wav";
+											vMA3_sr[0] = (vMA[vMO].showEnableText()) ? "Enable" : "Disable";
+										}
 										else {
 											if (vMA[vMO].showDecrement())
-												vMA3[0] = "a1.wav";
+											{
+												vMA3_sv[0] = "a1.wav";
+												vMA3_sr[0] = "Decrement";
+											}
 											if (vMA[vMO].showIncrement())
-												vMA3[1] = "a2.wav";
+											{
+												vMA3_sv[1] = "a2.wav";
+												vMA3_sr[1] = "Increment";
+											}
 										}
-										vMO2 = sVGenerateMenu(null, vMA3, getServerItems());
+										vMO2 = sVGenerateMenu(null, vMA3_sv, vMA3_sr, 0, null, getServerItems(), false);
 										if (vMO2 == -1)
 											break;
-										//First, if this is a type "d" add-on and showEnabled is true then we'll enable the add-on,
-										//otherwise disable it
+										
 										if (vMO2 == 0)
 											Client.sendCommand((vMA[vMO].showEnableText()) ? CSCommon.cmd_incAddOn : CSCommon.cmd_decAddOn, vMA[vMO].getId());
 										else
 											Client.sendCommand(CSCommon.cmd_incAddOn, vMA[vMO].getId());
 										break;
-								} //switch
-							} //while in store
+								} 
+							} 
 							break;
 						case 4: //stats
 							using (BinaryReader statReader = Client.getResponse(CSCommon.buildCMDString(CSCommon.cmd_getStats))) {
@@ -938,7 +999,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 									SapiSpeech.speak(stats, SapiSpeech.SpeakFlag.noInterrupt);
 									Client.addChatMessage(stats);
 								}
-							} //using
+							} 
 							break;
 
 						case 5: //join chat room
@@ -952,28 +1013,26 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 						default:
 							exitOnline = true;
 							break;
-					} //switch choice
+					} 
 					if (Interaction.inOnlineGame || Interaction.inChat) {
 						fadeMusic();
 						startMusic();
 						startedMusic = false;
-						if (Options.entryMode == 1) //Throw game into capturing loop--usually done by
-							Interaction.waitForPlayers(); //requestCreate, but spectators don't receive this command.
+						if (Options.entryMode == 1) 
+							Interaction.waitForPlayers(); 
 						Client.spectatorPending = false;
 						onlineMenuNotifier.WaitOne();
 						Interaction.inOnlineGame = false;
 						Interaction.inChat = false;
 						fadeMusic();
-						break; //Came out of game so go back to parent loop for data clearing.
+						break; 
 					}
 					if (Client.closed || Options.requestedShutdown)
 						exitOnline = true;
-				} //while loop for menu
-				//Condition below won't be hit in the above loop if we're in a game and ALT+F4 is pressed to close it, so we need it
-				//here in case the child loop breaks so we will still hit this condition.
+				} 
 				if (Client.closed || Options.requestedShutdown)
 					exitOnline = true;
-			} //parent loop to control data clearing
+			} 
 		}
 
 
@@ -1446,12 +1505,24 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 				SapiSpeech.speak("Room name cannot be empty. Canceled.", SapiSpeech.SpeakFlag.interruptable);
 				return;
 			}
-			String password = null;
-			int pwd = sVGenerateMenu("pw3.wav", new String[] { "kd3.wav", "kd4.wav" }, getServerItems());
-			if (pwd == -1)
-				return;
-			if (pwd == 1) {
-				enr = DSound.LoadSound(DSound.NSoundPath + "\\pw1.wav");
+			            if (name == null)
+			                return;
+			            String password = null;
+			            int pwd;
+			            string[] sv_pwd = { "kd3.wav", "kd4.wav" };
+			            string[] sr_pwd = { "No", "Yes" };
+			            if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			            {
+			                pwd = sVGenerateMenu("pw3.wav", sv_pwd, sr_pwd, 0, null, getServerItems(), false);
+			            }
+			            else
+			            {
+			                pwd = GenerateMenu("Create a password for this room?", sr_pwd, 0, getServerItems());
+			            }
+			
+			            if (pwd == -1)
+			                return;
+			            if (pwd == 1) {				enr = DSound.LoadSound(DSound.NSoundPath + "\\pw1.wav");
 				do {
 					DSound.PlaySound(enr, true, false);
 					password = mainGUI.receiveInput();

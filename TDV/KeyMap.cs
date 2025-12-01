@@ -252,14 +252,50 @@ namespace TDV
 				return ("keymap" + a + ".wav");
 			}, () =>
 			{
-				// If we're using a screen reader, we'll create the keymap string by splitting along uppercase letters in the enum.
-				// So an enum value such as throttleUp will be returned as throttle up
-				String val = ((Aircraft.Action)a).ToString();
-				var r = new Regex(@"
+                // If we're using a screen reader, we'll create the keymap string by splitting along uppercase letters in the enum.
+                // So an enum value such as throttleUp will be returned as throttle up
+                Aircraft.Action action = (Aircraft.Action)a;
+                string readableName;
+
+                switch (action)
+                {
+                    case Aircraft.Action.prevMessage:
+                        readableName = "previous chat message";
+                        break;
+                    case Aircraft.Action.nextMessage:
+                        readableName = "next chat message";
+                        break;
+                    case Aircraft.Action.whoIs:
+                        readableName = "who is online";
+                        break;
+                    case Aircraft.Action.copyMessage:
+                        readableName = "copy chat message";
+                        break;
+                    case Aircraft.Action.optionsMenu:
+                        readableName = "open options menu";
+						break;
+                    default:
+                        String val = action.ToString();
+                        var r = new Regex(@"
 			(?<=[A-Z])(?=[A-Z][a-z]) |
 			(?<=[^A-Z])(?=[A-Z]) |
 			(?<=[A-Za-z])(?=[^A-Za-z])", RegexOptions.IgnorePatternWhitespace);
-				return r.Replace(val, " ").ToLower();
+                        readableName = r.Replace(val, " ").ToLower();
+                        break;
+                }
+
+                long[] keyData = getKey(action);
+                if (keyData != null)
+                {
+                    string keyString = "";
+                    if (keyData[0] != -1)
+                    {
+                        keyString += ((Key)keyData[0]).ToString() + " + ";
+                    }
+                    keyString += ((Key)keyData[1]).ToString();
+                    readableName += ": " + keyString;
+                }
+                return readableName;
 			}, Options.menuVoiceMode);
 		}
 

@@ -434,12 +434,23 @@ namespace TDV
 					Options.mode = Options.Modes.deathMatch;
 				} //if we didn't get a specific action to perform
 			} else { //if not ACB
-				string[] m1 = Common.returnSvOrSr(() => new string[] { "mainmenu_1.wav", "mainmenu_7.wav", "mainmenu_2.wav", "mainmenu_3.wav", "mainmenu_5.wav", "mainmenu_6.wav", "mainmenu_4.wav" },
-				() => new string[] { "Start a new game", "Load a saved game", "Mode selection", "Test speakers", "Settings", "Sound description", "Exit" }, Options.menuVoiceMode);
+				string[] sv_m1 = { "mainmenu_1.wav", "mainmenu_7.wav", "mainmenu_2.wav", "mainmenu_3.wav", "mainmenu_5.wav", "mainmenu_6.wav", "mainmenu_4.wav" };
+				string[] sr_m1 = { "Start a new game", "Load a saved game", "Mode selection", "Test speakers", "Settings", "Sound description", "Exit" };
+				string sv_intro = DXInput.JSDevice == null ? "mainmenu_i.wav" : "mainmenu_ijs.wav";
+				string sr_intro = DXInput.JSDevice == null ? "Main Menu. Use your arrow keys to navigate the options. Press ESCAPE to back out of any menu. Pressing HOME or END will move you to the top or bottom of a menu." : "Main Menu. Press down or right on the View Finder to move forward, and up or left to move backward through a menu. The fire button will select a choice, and the switch weapons button will back out of any menu.";
+
 				bool exitMenu = false;
 				int index = 0;
 				while (!exitMenu) {
-					index = Common.returnSvOrSr(() => Common.sVGenerateMenu(DXInput.JSDevice == null ? "mainmenu_i.wav" : "mainmenu_ijs.wav", m1, index, Common.getIncDecVol()), () => Common.GenerateMenu(DXInput.JSDevice == null ? "Main Menu. Use your arrow keys to navigate the options. Press ESCAPE to back out of any menu. Pressing HOME or END will move you to the top or bottom of a menu." : "Main Menu. Press down or right on the View Finder to move forward, and up or left to move backward through a menu. The fire button will select a choice, and the switch weapons button will back out of any menu.", m1, index, Common.getIncDecVol()), Options.menuVoiceMode);
+					if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+					{
+						index = Common.sVGenerateMenu(sv_intro, sv_m1, sr_m1, index, null, Common.getIncDecVol(), false);
+					}
+					else
+					{
+						index = Common.GenerateMenu(sr_intro, sr_m1, index, Common.getIncDecVol());
+					}
+					
 					switch (index) {
 						case 0: //start game
 							if (Options.mode == Options.Modes.none) { //start flight with no mode selected
@@ -470,11 +481,20 @@ namespace TDV
 							Common.playUntilKeyPress(DSound.SoundPath + "\\speakertest.ogg");
 							break;
 						case 4: //options
-							string[] oArray = Common.returnSvOrSr(() => new string[] { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav" }, () => new string[] { "Map keys", "Change input device", "Change performance options", "Select screen reader" }, Options.menuVoiceMode);
+							string[] sv_oArray = { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav", "speech_mode.wav" };
+							string[] sr_oArray = { "Map keys", "Change input device", "Change performance options", "Select screen reader", "Change Speech Mode" };
 
 							int oIndex = 0;
 							while (oIndex != -1) {
-								oIndex = Common.returnSvOrSr(() => Common.sVGenerateMenu(null, oArray, oIndex, Common.getIncDecVol()), () => Common.GenerateMenu(null, oArray, oIndex, Common.getIncDecVol()), Options.menuVoiceMode);
+								if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+								{
+									oIndex = Common.sVGenerateMenu(null, sv_oArray, sr_oArray, oIndex, null, Common.getIncDecVol(), false);
+								}
+								else
+								{
+									oIndex = Common.GenerateMenu(null, sr_oArray, oIndex, Common.getIncDecVol());
+								}
+								
 								switch (oIndex) {
 									case 0: //map keys
 										buildKeyMapMenu();
@@ -490,6 +510,10 @@ namespace TDV
 
 									case 3: //switch screen reader
 										switchScreenReader();
+										break;
+									case 4: //Change Speech Mode
+										setSVMode();
+										oIndex = -1; // Exit options menu to apply change
 										break;
 								}
 							}
@@ -511,7 +535,18 @@ namespace TDV
 
 		private void switchScreenReader()
 		{
-			int choice = Common.returnSvOrSr(() => Common.sVGenerateMenu("mainmenu_5_4_i.wav", new String[] { "mainmenu_5_4_1.wav", "mainmenu_5_4_2.wav" }, (int)(SapiSpeech.source - 1), Common.getIncDecVol()), () => Common.GenerateMenu("Select a speech output source to use.", new String[] { "Microsoft SAPI", "Auto detect" }, (int)(SapiSpeech.source - 1), Common.getIncDecVol()), Options.menuVoiceMode);
+			string[] sv_choices = { "mainmenu_5_4_1.wav", "mainmenu_5_4_2.wav" };
+			string[] sr_choices = { "Microsoft SAPI", "Auto detect" };
+			int choice;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				choice = Common.sVGenerateMenu("mainmenu_5_4_i.wav", sv_choices, sr_choices, (int)(SapiSpeech.source - 1), null, Common.getIncDecVol(), false);
+			}
+			else
+			{
+				choice = Common.GenerateMenu("Select a speech output source to use.", sr_choices, (int)(SapiSpeech.source - 1), Common.getIncDecVol());
+			}
+
 			if (choice == -1)
 				return;
 			switch (choice) {
@@ -527,9 +562,21 @@ namespace TDV
 
 		private void changePerformance()
 		{
-			String[] options = Common.returnSvOrSr(() => new string[] { "mainmenu_5_3_1.wav", "mainmenu_5_3_2.wav", "mainmenu_5_3_3.wav" }, () => new string[] { "Yes, always", "Occasionally", "No, there is no stuttering" }, Options.menuVoiceMode);
-			String intro = Common.returnSvOrSr(() => "mainmenu_5_3_i.wav", () => "Are you experiencing audio stuttering?", Options.menuVoiceMode);
-			int choice = Common.returnSvOrSr(() => Common.sVGenerateMenu(intro, options, Common.getIncDecVol()), () => Common.GenerateMenu(intro, options, Common.getIncDecVol()), Options.menuVoiceMode);
+			string[] sv_options = { "mainmenu_5_3_1.wav", "mainmenu_5_3_2.wav", "mainmenu_5_3_3.wav" };
+			string[] sr_options = { "Yes, always", "Occasionally", "No, there is no stuttering" };
+			string sv_intro = "mainmenu_5_3_i.wav";
+			string sr_intro = "Are you experiencing audio stuttering?";
+			int choice;
+
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				choice = Common.sVGenerateMenu(sv_intro, sv_options, sr_options, 0, null, Common.getIncDecVol(), false);
+			}
+			else
+			{
+				choice = Common.GenerateMenu(sr_intro, sr_options, 0, Common.getIncDecVol());
+			}
+
 			if (choice == -1)
 				return;
 			Options.writeToFile();
@@ -544,8 +591,17 @@ namespace TDV
 						//Only display the menu below if we have a joystick connected,
 						//else skip it and assume keyboard mapping.
 			if (DXInput.JSDevice != null) {
-				string[] devices = Common.returnSvOrSr(() => new string[] { "mainmenu_5_1_1.wav", "mainmenu_5_1_2.wav" }, () => new string[] { "Keyboard", "Joystick or flight simulation controller" }, Options.menuVoiceMode);
-				dO = Common.returnSvOrSr(() => Common.sVGenerateMenu("mainmenu_5_1_i.wav", devices, Common.getIncDecVol()), () => Common.GenerateMenu("What device would you like to map?", devices, Common.getIncDecVol()), Options.menuVoiceMode);
+				string[] sv_devices = { "mainmenu_5_1_1.wav", "mainmenu_5_1_2.wav" };
+				string[] sr_devices = { "Keyboard", "Joystick or flight simulation controller" };
+				if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+				{
+					dO = Common.sVGenerateMenu("mainmenu_5_1_i.wav", sv_devices, sr_devices, 0, null, Common.getIncDecVol(), false);
+				}
+				else
+				{
+					dO = Common.GenerateMenu("What device would you like to map?", sr_devices, 0, Common.getIncDecVol());
+				}
+
 				if (dO == -1)
 					return;
 			} //if a joystick is connected
@@ -582,8 +638,25 @@ namespace TDV
 						Aircraft.Action.ascend, Aircraft.Action.descend, Aircraft.Action.level, Aircraft.Action.togglePointOfView,
 						Aircraft.Action.increaseMusicVolume, Aircraft.Action.decreaseMusicVolume, Aircraft.Action.exitGame, Aircraft.Action.switchToWeapon1, Aircraft.Action.switchToWeapon2, Aircraft.Action.switchToWeapon3, Aircraft.Action.switchToWeapon4, Aircraft.Action.switchToWeapon5, Aircraft.Action.admin, Aircraft.Action.endStrafe, Aircraft.Action.removeBot, Aircraft.Action.addBot, Aircraft.Action.cloak, Aircraft.Action.deCloak
 					).CopyTo(strKeys, 0);
-				strKeys[strKeys.Length - 1] = Common.returnSvOrSr(() => "kd1.wav", () => "Restore default keymap", Options.menuVoiceMode);
-				index = Common.returnSvOrSr(() => Common.sVGenerateMenu("ki.wav", strKeys, (index == -1) ? 0 : (index - 1), Common.getIncDecVol()), () => Common.GenerateMenu("Select a key. Press ESCAPE, or button 2 to save your changes.", strKeys, (index == -1) ? 0 : (index - 1), Common.getIncDecVol()), Options.menuVoiceMode) + 1;
+				
+				string sv_restore = "kd1.wav";
+				string sr_restore = "Restore default keymap";
+				strKeys[strKeys.Length - 1] = (Options.menuVoiceMode == Options.VoiceModes.selfVoice) ? sv_restore : sr_restore;
+				
+				string sv_intro_keys = "ki.wav";
+				string sr_intro_keys = "Select a key. Press ESCAPE, or button 2 to save your changes.";
+
+				if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+				{
+					// Since KeyMap.getKeyStrings mixes text and audio file names, we pass the same array for both.
+					// The fallback logic in sVGenerateMenu will handle it.
+					index = Common.sVGenerateMenu(sv_intro_keys, strKeys, strKeys, (index == -1) ? 0 : (index - 1), null, Common.getIncDecVol(), false) + 1;
+				}
+				else
+				{
+					index = Common.GenerateMenu(sr_intro_keys, strKeys, (index == -1) ? 0 : (index - 1), Common.getIncDecVol()) + 1;
+				}
+
 				if (index > 0) {
 					if (index < strKeys.Length) {
 						if (mapKeyboard) {
@@ -592,7 +665,7 @@ namespace TDV
 							OggBuffer prompt = null;
 							Common.executeSvOrSr(() =>
 							{
-								DSound.loadOgg(DSound.NSoundPath + "\\kmp1.ogg");
+								prompt = DSound.loadOgg(DSound.NSoundPath + "\\kmp1.ogg");
 								prompt.play();
 							}, () => SapiSpeech.speak("Press the modifier you would like to assign to this action; press ENTER for none.", SapiSpeech.SpeakFlag.interruptable), Options.menuVoiceMode);
 							while (DXInput.isKeyHeldDown()) {
@@ -643,12 +716,22 @@ namespace TDV
 								}
 								if (assigned != 0) {
 									int overConf = 0;
-									Common.executeSvOrSr(() =>
+									string[] sv_confirm = { "kd3.wav", "kd4.wav" };
+									string[] sr_confirm = { "No", "Yes" };
+									string sv_confirm_intro = "kp2.wav";
+									string sr_confirm_intro = $"This command is already assigned to {strKeys[assigned - 1]}. In order to assign this command, you will have to reassign the mentioned command. Do you want to continue and assign this action?";
+									
+									DSound.playAndWait(DSound.NSoundPath + "\\kp1.wav");
+									if(Options.menuVoiceMode == Options.VoiceModes.selfVoice)
 									{
-										DSound.playAndWait(DSound.NSoundPath + "\\kp1.wav");
 										DSound.playAndWait(DSound.NSoundPath + "\\" + strKeys[assigned - 1]);
-										overConf = Common.sVGenerateMenu("kp2.wav", new String[] { "kd3.wav", "kd4.wav" }, Common.getIncDecVol());
-									}, () => overConf = Common.GenerateMenu($"This command is already assigned to {strKeys[assigned - 1]}. In order to assign this command, you will have to reassign the mentioned command. Do you want to continue and assign this action?", new String[] { "No", "Yes" }, Common.getIncDecVol()), Options.menuVoiceMode);
+										overConf = Common.sVGenerateMenu(sv_confirm_intro, sv_confirm, sr_confirm, 0, null, Common.getIncDecVol(), false);
+									}
+									else
+									{
+										overConf = Common.GenerateMenu(sr_confirm_intro, sr_confirm, 0, Common.getIncDecVol());
+									}
+
 									if (overConf == 0 || overConf == -1)
 										break; //loop over, doesn't want to modify assignment
 								}
@@ -683,7 +766,17 @@ namespace TDV
 						} //joystick
 					} //if index < .length
 					else { //if we want to delete keymap
-						int yesNo = Common.returnSvOrSr(() => Common.sVGenerateMenu("kd2.wav", new String[] { "kd3.wav", "kd4.wav" }, Common.getIncDecVol()), () => Common.GenerateMenu("Selecting Yes will restore the keymap for the currently selected device back to default. Are you sure you wish to do this?", new String[] { "No", "Yes" }, Common.getIncDecVol()), Options.menuVoiceMode);
+						string[] sv_del = { "kd3.wav", "kd4.wav" };
+						string[] sr_del = { "No", "Yes" };
+						int yesNo;
+						if(Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+						{
+							yesNo = Common.sVGenerateMenu("kd2.wav", sv_del, sr_del, 0, null, Common.getIncDecVol(), false);
+						}
+						else
+						{
+							yesNo = Common.GenerateMenu("Selecting Yes will restore the keymap for the currently selected device back to default. Are you sure you wish to do this?", sr_del, 0, Common.getIncDecVol());
+						}
 						if (yesNo == 1) {
 							KeyMap.deleteKeymap((mapKeyboard) ? KeyMap.Device.keyboard : KeyMap.Device.joystick);
 							index = 0; //exit keymap
@@ -753,12 +846,35 @@ namespace TDV
 					break;
 				}
 			}
-			string[] devListSTR = new string[(dList2 == null) ? 1 : 2];
-			devListSTR[0] = Common.returnSvOrSr(() => "mainmenu_5_1_1.wav", () => "Keyboard", Options.menuVoiceMode);
+			
+			string[] sv_devListSTR = new string[(dList2 == null) ? 1 : 2];
+			sv_devListSTR[0] = "mainmenu_5_1_1.wav";
+			string[] sr_devListSTR = new string[(dList2 == null) ? 1 : 2];
+			sr_devListSTR[0] = "Keyboard";
+
 			if (dList2 != null)
-				devListSTR[1] = Common.returnSvOrSr(() => "mainmenu_5_1_2.wav", () => "Joystick or flight simulation controller", Options.menuVoiceMode);
-			int mindex = (silentMode) ? 1
-				: Common.returnSvOrSr(() => Common.sVGenerateMenu(null, devListSTR, Common.getIncDecVol()), () => Common.GenerateMenu(null, devListSTR, Common.getIncDecVol()), Options.menuVoiceMode);
+			{
+				sv_devListSTR[1] = "mainmenu_5_1_2.wav";
+				sr_devListSTR[1] = "Joystick or flight simulation controller";
+			}
+			
+			int mindex;
+			if (silentMode)
+			{
+				mindex = 1;
+			}
+			else
+			{
+				if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+				{
+					mindex = Common.sVGenerateMenu(null, sv_devListSTR, sr_devListSTR, 0, null, Common.getIncDecVol(), false);
+				}
+				else
+				{
+					mindex = Common.GenerateMenu(null, sr_devListSTR, 0, Common.getIncDecVol());
+				}
+			}
+
 			if (mindex == -1)
 				return;
 			if (mindex > 0) {
@@ -908,19 +1024,31 @@ namespace TDV
 				Options.autoPlay = false;
 				Options.isPlayingOnline = false;
 			}
-			string[] modeOptions = Common.returnSvOrSr(() => new string[]{ "mainmenu_2_1.wav",
+			
+			string[] sv_modeOptions = { "mainmenu_2_1.wav",
 				"mainmenu_2_2.wav",
 				(Options.mode != Options.Modes.autoPlay) ? "mainmenu_2_3.wav" : "",
 				(Options.mode != Options.Modes.autoPlay) ? "mainmenu_2_4.wav" : "",
 				(Options.mode != Options.Modes.autoPlay) ? "mainmenu_2_5.wav" : "",
 				"mainmenu_2_6.wav"
-			}, () => new string[] {"Racing mode", "Death match mode",
+			};
+			string[] sr_modeOptions = {"Racing mode", "Death match mode",
 				(Options.mode != Options.Modes.autoPlay) ? "Training mode" : "",
 				(Options.mode != Options.Modes.autoPlay) ? "Mission mode" : "",
 				(Options.mode != Options.Modes.autoPlay) ? "Autoplay mode" : "",
 				"Multiplayer mode"
-			}, Options.menuVoiceMode);
-			int modeIndex = Common.returnSvOrSr(() => Common.sVGenerateMenu("", modeOptions, Common.getIncDecVol()), () => Common.GenerateMenu("", modeOptions, Common.getIncDecVol()), Options.menuVoiceMode);
+			};
+
+			int modeIndex;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				modeIndex = Common.sVGenerateMenu("", sv_modeOptions, sr_modeOptions, 0, null, Common.getIncDecVol(), false);
+			}
+			else
+			{
+				modeIndex = Common.GenerateMenu("", sr_modeOptions, 0, Common.getIncDecVol());
+			}
+
 			if (modeIndex == -1)
 				return false;
 			Options.mode = (Options.Modes)(modeIndex + 1);
@@ -1173,18 +1301,12 @@ namespace TDV
 							 "alarm8.wav", "rad2.wav", "alarm10.wav",
 							 "alarm9.wav"};
 
-			String[] choices = null;
-			String intro = null;
-			int choice = 0;
-			Common.executeSvOrSr(() =>
-			{
-				choices = new string[15];
-				for (int i = 0; i < choices.Length; i++)
-					choices[i] = "s" + (i + 1) + ".wav";
-				intro = (DXInput.JSDevice == null) ? "mainmenu_6_i.wav" : "mainmenu_6_ij.wav";
-			}, () =>
-			{
-				choices = new string[] {"Target solution",
+			string[] sv_choices = new string[15];
+			for (int i = 0; i < sv_choices.Length; i++)
+				sv_choices[i] = "s" + (i + 1) + ".wav";
+			string sv_intro = (DXInput.JSDevice == null) ? "mainmenu_6_i.wav" : "mainmenu_6_ij.wav";
+
+			string[] sr_choices = {"Target solution",
 					"Solid lock tone",
 					"Within vertical range of target",
 					"Turn signal",
@@ -1200,12 +1322,23 @@ namespace TDV
 					"Fuel warning",
 					"Rogue warning"
 				};
-				intro = (DXInput.JSDevice == null) ? "Press ENTER on a sound to hear it" : "Press the fire button on a sound to hear it";
-			}, Options.menuVoiceMode);
+			string sr_intro = (DXInput.JSDevice == null) ? "Press ENTER on a sound to hear it" : "Press the fire button on a sound to hear it";
+
+			int choice = 0;
 			ExtendedAudioBuffer clip = null;
 			do {
-				choice = Common.returnSvOrSr(() => Common.sVGenerateMenu(intro, choices, choice, Common.getIncDecVol()), () => Common.GenerateMenu(intro, choices, choice, Common.getIncDecVol()), Options.menuVoiceMode);
-				intro = null;
+				if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+				{
+					choice = Common.sVGenerateMenu(sv_intro, sv_choices, sr_choices, choice, null, Common.getIncDecVol(), false);
+				}
+				else
+				{
+					choice = Common.GenerateMenu(sr_intro, sr_choices, choice, Common.getIncDecVol());
+				}
+
+				sv_intro = null; // Only play intro once
+				sr_intro = null;
+
 				if (choice != -1) {
 					clip = DSound.LoadSound(DSound.SoundPath + "\\" + s[choice]);
 					DSound.PlaySound(clip, true, false);
@@ -1223,8 +1356,18 @@ namespace TDV
 
 		private bool loadGameMenu()
 		{
-			String[] ops = Common.returnSvOrSr(() => new String[] { "l_1.wav", "l_2.wav", "l_3.wav" }, () => new string[] { "1", "2", "3" }, Options.menuVoiceMode);
-			int slot = Common.returnSvOrSr(() => Common.sVGenerateMenu("mainmenu_7_i.wav", ops, Common.getIncDecVol()), () => Common.GenerateMenu("Select a slot from which to load", ops, Common.getIncDecVol()), Options.menuVoiceMode) + 1;
+			string[] sv_ops = { "l_1.wav", "l_2.wav", "l_3.wav" };
+			string[] sr_ops = { "1", "2", "3" };
+			int slot;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				slot = Common.sVGenerateMenu("mainmenu_7_i.wav", sv_ops, sr_ops, 0, null, Common.getIncDecVol(), false) + 1;
+			}
+			else
+			{
+				slot = Common.GenerateMenu("Select a slot from which to load", sr_ops, 0, Common.getIncDecVol()) + 1;
+			}
+
 			if (slot == 0)
 				return false;
 			Options.loadedFromMainMenu = true; //so loadGame knows we're loading from the main screen.

@@ -838,7 +838,19 @@ namespace TDV
 		{
 			if (spectatorPending)
 				return Options.entryMode = 1;
-			int s = Common.returnSvOrSr(() => Common.sVGenerateMenu("", new String[] { "menuc_2_1.wav", "menuc_2_2.wav" }), () => Common.GenerateMenu("", new string[] { "Be a pilot", "Act as spectator" }), Options.menuVoiceMode);
+			
+			int s;
+			string[] sv_choices = { "menuc_2_1.wav", "menuc_2_2.wav" };
+			string[] sr_choices = { "Be a pilot", "Act as spectator" };
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				s = Common.sVGenerateMenu("", sv_choices, sr_choices, 0, null, null, false);
+			}
+			else
+			{
+				s = Common.GenerateMenu("", sr_choices);
+			}
+
 			if (s == -1)
 				return -1;
 			Options.entryMode = s;
@@ -996,7 +1008,17 @@ namespace TDV
 		{
 			if (spectatorPending)
 			{
-				int choice = Common.sVGenerateMenu("aspec.wav", new String[] { "kd4.wav", "kd3.wav" });
+				int choice;
+				string[] sv_choices = { "kd4.wav", "kd3.wav" };
+				string[] sr_choices = { "Yes", "No" };
+				if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+				{
+					choice = Common.sVGenerateMenu("aspec.wav", sv_choices, sr_choices, 0, null, null, false);
+				}
+				else
+				{
+					choice = Common.GenerateMenu("Do you want to enter spectator mode?", sr_choices);
+				}
 				spectatorPending = choice == 0;
 			}
 			return spectatorPending;
