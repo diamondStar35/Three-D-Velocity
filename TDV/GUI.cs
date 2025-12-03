@@ -481,8 +481,8 @@ namespace TDV
 							Common.playUntilKeyPress(DSound.SoundPath + "\\speakertest.ogg");
 							break;
 						case 4: //options
-							string[] sv_oArray = { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav", "speech_mode.wav" };
-							string[] sr_oArray = { "Map keys", "Change input device", "Change performance options", "Select screen reader", "Change Speech Mode" };
+							string[] sv_oArray = { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav", "speech_mode.wav", "mono_audio_compat.wav", "tonal_guidance.wav" };
+							string[] sr_oArray = { "Map keys", "Change input device", "Change performance options", "Select screen reader", "Change Speech Mode", "Mono audio compatibility", "Tonal guidance" };
 
 							int oIndex = 0;
 							while (oIndex != -1) {
@@ -514,6 +514,12 @@ namespace TDV
 									case 4: //Change Speech Mode
 										setSVMode();
 										oIndex = -1; // Exit options menu to apply change
+										break;
+									case 5: // Mono audio compatibility
+										toggleMonoAudioMode();
+										break;
+									case 6: // Tonal guidance
+										toggleTonalGuidanceMode();
 										break;
 								}
 							}
@@ -559,6 +565,53 @@ namespace TDV
 			}
 			Options.writeToFile();
 		}
+
+		private void toggleTonalGuidanceMode()
+		{
+			string[] sv_choices = { "on.wav", "off.wav" };
+			string[] sr_choices = { "On", "Off" };
+			int currentChoice = Options.tonalGuidanceEnabled ? 0 : 1;
+
+			int choice;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				choice = Common.sVGenerateMenu("tonal_guidance_prompt.wav", sv_choices, sr_choices, currentChoice, "Enable tonal guidance. This will provide audio cues for navigation.", Common.getIncDecVol(), false);
+			}
+			else
+			{
+				choice = Common.GenerateMenu("Enable tonal guidance. This will provide audio cues for navigation.", sr_choices, currentChoice, Common.getIncDecVol());
+			}
+
+			if (choice != -1)
+			{
+				Options.tonalGuidanceEnabled = (choice == 0);
+				Options.writeToFile();
+			}
+		}
+
+		private void toggleMonoAudioMode()
+		{
+			string[] sv_choices = { "on.wav", "off.wav" };
+			string[] sr_choices = { "On", "Off" };
+			int currentChoice = Options.monoAudioCompatibilityMode ? 0 : 1;
+
+			int choice;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				choice = Common.sVGenerateMenu("mono_audio_compat_prompt.wav", sv_choices, sr_choices, currentChoice, "Enable mono audio compatibility mode. This will represent object positions using panning and pitch instead of 3D audio.", Common.getIncDecVol(), false);
+			}
+			else
+			{
+				choice = Common.GenerateMenu("Enable mono audio compatibility mode. This will represent object positions using panning and pitch instead of 3D audio.", sr_choices, currentChoice, Common.getIncDecVol());
+			}
+
+			if (choice != -1)
+			{
+				Options.monoAudioCompatibilityMode = (choice == 0);
+				Options.writeToFile();
+			}
+		}
+
 
 		private void changePerformance()
 		{

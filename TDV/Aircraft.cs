@@ -161,7 +161,9 @@ namespace TDV
 			removeBot,
 			endStrafe,
 			cloak,
-			deCloak
+			deCloak,
+			toggleGuidanceSystem,
+			ReportTargetDetails
 		}
 
 
@@ -229,6 +231,14 @@ namespace TDV
 		private ExtendedAudioBuffer destroyed;
 		private ExtendedAudioBuffer targetSolutionSound;
 		private ExtendedAudioBuffer targetSolutionSound3;
+		private ExtendedAudioBuffer missileIncomingSound;
+		private ExtendedAudioBuffer turnLeftTone;
+		private ExtendedAudioBuffer turnRightTone;
+		private ExtendedAudioBuffer ascendTone;
+		private ExtendedAudioBuffer descendTone;
+		private int guidanceMessageTime;
+		private const int guidanceMessageInterval = 2000; // 2 seconds
+
 
 		// The volume at which fade-in will no longer occur.
 		private const float engineFadeInThreshold = 0.6f;
@@ -539,6 +549,7 @@ namespace TDV
 			lastTrainingFile = null;
 			lastStatusCommand = Status.none;
 			facingState = FacingState.upright;
+			guidanceMessageTime = 0;
 			//let maxthrottleposition be rpm at which 800 mph is achieved
 			maxThrottlePosition = (int)(800.0 / Degrees.getCircumference(engineRadius));
 			maxThrottlePosition /= throttleSpan;
@@ -796,6 +807,8 @@ namespace TDV
 			}
 			updateOpenPosition();
 			if (!isAI || autoPlayTarget) {
+				if (Options.guidanceSystemEnabled)
+					guidanceSystem();
 				updateListener();
 				playThrottleClick();
 				playCourseClick();
@@ -873,6 +886,113 @@ namespace TDV
 					cruiseFire += Common.intervalMS; //we've already fired.
 				fireCruiseMissile();
 			} //if mission fighter
+		}
+
+		private void guidanceSystem()
+		{
+			if (Environment.TickCount - guidanceMessageTime < guidanceMessageInterval)
+			{
+				return;
+			}
+
+			// Missile warning
+			List<Projector> projectiles = Interaction.getProjectiles(this);
+			if (projectiles != null)
+			{
+				foreach (Projector p in projectiles)
+				{
+					if (p is Missile)
+					{
+						Missile missile = (Missile)p;
+						if (missile.weapon.getLockedTarget() != null && missile.weapon.getLockedTarget().Equals(this))
+						{
+							playSound(missileIncomingSound, true, true);
+							SapiSpeech.speak("Missile incoming! Evasive maneuvers!", SapiSpeech.SpeakFlag.interruptable);
+							guidanceMessageTime = Environment.TickCount;
+							return; // Prioritize missile warnings
+						}
+					}
+				}
+			}
+
+
+			if (DSound.isPlaying(missileIncomingSound))
+			{
+				missileIncomingSound.stop();
+			}
+
+			if (!weapon.isValidLock())
+			{
+				SapiSpeech.speak("No target locked for guidance.", SapiSpeech.SpeakFlag.interruptable);
+				guidanceMessageTime = Environment.TickCount;
+				return;
+			}
+
+			Projector target = weapon.getLockedTarget();
+			RelativePosition relPos = getPosition(target);
+			Degrees.Rotation shortestRotation = Degrees.getShortestRotation(direction, targetDegrees());
+
+			// Horizontal guidance
+			if (relPos.degreesDifference > 10)
+			{
+				if (shortestRotation == Degrees.Rotation.clockwise)
+				{
+					SapiSpeech.speak($"Turn right to heading {targetDegrees()}.", SapiSpeech.SpeakFlag.interruptable);
+					if (Options.tonalGuidanceEnabled)
+					{
+						playSound(turnRightTone, true, true);
+					}
+				}
+				else
+				{
+					SapiSpeech.speak($"Turn left to heading {targetDegrees()}.", SapiSpeech.SpeakFlag.interruptable);
+					if (Options.tonalGuidanceEnabled)
+					{
+						playSound(turnLeftTone, true, true);
+					}
+				}
+			} else {
+				if (DSound.isPlaying(turnLeftTone))
+				{
+					turnLeftTone.stop();
+				}
+				if (DSound.isPlaying(turnRightTone))
+				{
+					turnRightTone.stop();
+				}
+			}
+
+			// Vertical guidance
+			if (Math.Abs(relPos.vDistance) > 100)
+			{
+				if (relPos.vDistance > 0)
+				{
+					SapiSpeech.speak("Descend to target.", SapiSpeech.SpeakFlag.interruptable);
+					if (Options.tonalGuidanceEnabled)
+					{
+						playSound(descendTone, true, true);
+					}
+				}
+				else
+				{
+					SapiSpeech.speak("Ascend to target.", SapiSpeech.SpeakFlag.interruptable);
+					if (Options.tonalGuidanceEnabled)
+					{
+						playSound(ascendTone, true, true);
+					}
+				}
+			} else {
+				if (DSound.isPlaying(ascendTone))
+				{
+					ascendTone.stop();
+				}
+				if (DSound.isPlaying(descendTone))
+				{
+					descendTone.stop();
+				}
+			}
+
+			guidanceMessageTime = Environment.TickCount;
 		}
 
 		private void interact()
@@ -1383,6 +1503,16 @@ namespace TDV
 					turnSignal = DSound.LoadSound(soundPath + "alarm3.wav");
 				if (selfDestAlarm == null)
 					selfDestAlarm = DSound.LoadSound(soundPath + "alarm9.wav");
+				if (missileIncomingSound == null)
+					missileIncomingSound = DSound.LoadSound(soundPath + "\\missileIncoming.ogg");
+				if (turnLeftTone == null)
+					turnLeftTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(440, 0.5));
+				if (turnRightTone == null)
+					turnRightTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(550, 0.5));
+				if (ascendTone == null)
+					ascendTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(660, 0.5));
+				if (descendTone == null)
+					descendTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(330, 0.5));
 			}
 		}
 
@@ -2867,6 +2997,11 @@ weapon.firingRange);
 			DSound.unloadSound(ref selfDestAlarm);
 			DSound.unloadSound(ref throttleClickSound);
 			DSound.unloadSound(ref courseClickSound);
+			DSound.unloadSound(ref missileIncomingSound);
+			DSound.unloadSound(ref turnLeftTone);
+			DSound.unloadSound(ref turnRightTone);
+			DSound.unloadSound(ref ascendTone);
+			DSound.unloadSound(ref descendTone);
 		}
 
 		public override void freeResources()
@@ -3697,6 +3832,10 @@ weapon.firingRange);
 						check(Action.registerLock, true);
 						check(Action.switchWeapon, true);
 						check(Action.activateAfterburners, true);
+						check(Action.toggleGuidanceSystem, true);
+						if (Options.monoAudioCompatibilityMode && DXInput.isFirstPress(Key.C))
+							actionsArray.Add(Action.ReportTargetDetails);
+
 						check(Action.togglePointOfView, true);
 						check(Action.optionsMenu, true);
 					} //If !waiting for host
@@ -3725,12 +3864,23 @@ weapon.firingRange);
 				if (Options.mode == Options.Modes.training && !isAI)
 					acHistory.Add(action);
 				switch (action) {
+					case Action.toggleGuidanceSystem:
+						Options.guidanceSystemEnabled = !Options.guidanceSystemEnabled;
+						Options.writeToFile();
+						if (Options.guidanceSystemEnabled)
+							SapiSpeech.speak("Guidance system enabled.");
+						else
+							SapiSpeech.speak("Guidance system disabled.");
+						break;
 					case Action.addBot:
 						Client.addBot();
 						break;
 
 					case Action.removeBot:
 						Client.removeBot();
+						break;
+					case Action.ReportTargetDetails:
+						reportTargetDetails();
 						break;
 
 					case Action.leftBarrelRoll:
@@ -3932,6 +4082,47 @@ weapon.firingRange);
 				weapon.setStrafe(false);
 			sendObjectUpdate();
 			iteratingActions = false;
+		}
+
+		private void reportTargetDetails()
+		{
+			if (!weapon.isValidLock())
+			{
+				SapiSpeech.speak("No target locked.", SapiSpeech.SpeakFlag.interruptable);
+				return;
+			}
+
+			Projector target = weapon.getLockedTarget();
+			RelativePosition relPos = getPosition(target);
+
+			string targetName = Common.getFriendlyNameOf(target.ToString());
+
+			string distanceStr = $"{Common.cultureNeutralRound(relPos.distance, 1)} miles";
+
+			string bearingStr = $"{relPos.clockMark} o'clock";
+
+			float altitudeDiff = relPos.vDistance;
+			string altitudeStr = "";
+			if (Math.Abs(altitudeDiff) < 100)
+			{
+				altitudeStr = "same altitude";
+			}
+			else if (altitudeDiff > 0)
+			{
+				altitudeStr = $"{Math.Round(altitudeDiff)} feet above";
+			}
+			else
+			{
+				altitudeStr = $"{Math.Round(Math.Abs(altitudeDiff))} feet below";
+			}
+
+			string speedStr = $"{Math.Round(target.speed)} miles per hour";
+
+			string headingStr = $"heading {target.direction} degrees";
+
+			string finalReport = $"{targetName} , {distanceStr} , {bearingStr} , {altitudeStr} , at {speedStr} , {headingStr}";
+
+			SapiSpeech.speak(finalReport, SapiSpeech.SpeakFlag.interruptable);
 		}
 
 		private void soundLowFuelAlarm()

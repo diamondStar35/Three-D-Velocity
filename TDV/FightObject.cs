@@ -13,6 +13,7 @@ using SharpDX;
 using BPCSharedComponent.ExtendedAudio;
 using BPCSharedComponent.ExtendedAudio;
 using BPCSharedComponent.VectorCalculation;
+using BPCSharedComponent;
 
 namespace TDV
 {
@@ -255,7 +256,12 @@ namespace TDV
 		protected void playSound(ExtendedAudioBuffer theSound, bool stopFlag, bool loopFlag)
 		{
 			if (isAI)
-				DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, 0, y);
+			{
+				if (Options.monoAudioCompatibilityMode)
+					DSound.PlaySoundMonoCompat(theSound, stopFlag, loopFlag, x, 0, y);
+				else
+					DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, 0, y);
+			}
 			else
 				DSound.PlaySound(theSound, stopFlag, loopFlag);
 		}

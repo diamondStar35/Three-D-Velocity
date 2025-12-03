@@ -185,6 +185,7 @@
     <Compile Include="OggBuffer.cs" />
     <Compile Include="Range.cs" />
     <Compile Include="RelativePosition.cs" />
+    <Compile Include="ToneGenerator.cs" />
     <Compile Include="Velocity.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -125,6 +125,18 @@ namespace BPCSharedComponent.ExtendedAudio
 			return LoadSound(FileName, alwaysLoudDevice, notificationsSupport);
 		}
 
+		public static ExtendedAudioBuffer LoadTone(byte[] tone)
+		{
+			WaveFormat format = new WaveFormat(44100, 16, 1);
+			MemoryStream ms = new MemoryStream(tone);
+			SharpDX.DataStream dataStream = new SharpDX.DataStream(ms.ToArray().Length, true, true);
+			dataStream.Write(ms.ToArray(), 0, ms.ToArray().Length);
+			dataStream.Position = 0; // Reset position for reading
+			AudioBuffer buffer = new AudioBuffer { Stream = dataStream, AudioBytes = (int)dataStream.Length, Flags = SharpDX.XAudio2.BufferFlags.EndOfStream };
+			SourceVoice sv = new SourceVoice(mainSoundDevice, format, VoiceFlags.None, 5.0f, false);
+			return new ExtendedAudioBuffer(buffer, sv);
+		}
+
 		/// <summary>
 		/// Creates a new listener object with all of its values set to the default unit vectors per the documentation.
 		/// </summary>
@@ -137,6 +149,16 @@ namespace BPCSharedComponent.ExtendedAudio
 				Position = new Vector3(0, 0, 0),
 				Velocity = new Vector3(0, 0, 0)
 			};
+		}
+
+		public static Vector3 getListenerPosition()
+		{
+			return listener.Position;
+		}
+
+		public static Vector3 getListenerOrientFront()
+		{
+			return listener.OrientFront;
 		}
 
 		/// <summary>
@@ -205,6 +227,48 @@ namespace BPCSharedComponent.ExtendedAudio
 			DspSettings dspSettings = x3DAudio.Calculate(listener, emitter, flags, sound.getVoiceDetails().InputChannelCount, mainMasteringVoice.VoiceDetails.InputChannelCount);
 			sound.apply3D(dspSettings, sound.getVoiceDetails().InputChannelCount, mainMasteringVoice.VoiceDetails.InputChannelCount, flags);
 		}
+
+		public static void PlaySoundMonoCompat(ExtendedAudioBuffer theSound, bool stopFlag, bool loopFlag, float objX, float objY, float objZ)
+		{
+			// 1. Get positions
+			Vector3 playerPos = getListenerPosition();
+			Vector3 aiPos = new Vector3(objX, objY, objZ);
+
+			// 2. Relative position and distance
+			Vector3 relativePos = aiPos - playerPos;
+			float distance = relativePos.Length();
+
+			// 3. Volume
+			float maxAudibleDistance = 20000.0f;
+			float volume = 1.0f - (distance / maxAudibleDistance);
+			volume = Math.Max(0.0f, Math.Min(1.0f, volume));
+			theSound.setVolume(volume);
+
+			// 4. Pan
+			Vector2 relativePos2D = new Vector2(relativePos.X, relativePos.Z);
+			Vector2 forward2D = new Vector2(getListenerOrientFront().X, getListenerOrientFront().Z);
+
+			relativePos2D.Normalize();
+			forward2D.Normalize();
+
+			float dot = Vector2.Dot(forward2D, relativePos2D);
+			float det = forward2D.X * relativePos2D.Y - forward2D.Y * relativePos2D.X;
+			float angle = (float)Math.Atan2(det, dot);
+
+			float pan = angle / ((float)Math.PI / 2.0f);
+			pan = Math.Max(-1.0f, Math.Min(1.0f, pan));
+			setPan(theSound, pan);
+
+			// 5. Pitch for elevation
+			float elevationDifference = relativePos.Y;
+			float pitchSemitones = elevationDifference / 100.0f;
+			pitchSemitones = Math.Max(-12.0f, Math.Min(12.0f, pitchSemitones));
+			theSound.setFrequency(pitchSemitones);
+
+			// 6. Play sound
+			PlaySound(theSound, stopFlag, loopFlag);
+		}
+
 
 		/// <summary>
 		/// Sets the position of the listener.

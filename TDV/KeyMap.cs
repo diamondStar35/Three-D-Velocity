@@ -130,6 +130,7 @@ namespace TDV
 				addKey(Aircraft.Action.stopSAPI, Key.Q);
 				addKey(Aircraft.Action.decreaseMusicVolume, Key.F6);
 				addKey(Aircraft.Action.increaseMusicVolume, Key.F7);
+				addKey(Aircraft.Action.toggleGuidanceSystem, Key.LeftAlt, Key.C);
 			}
 
 			if (device == Device.both
