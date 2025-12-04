@@ -236,7 +236,9 @@ namespace TDV
 		private ExtendedAudioBuffer turnRightTone;
 		private ExtendedAudioBuffer ascendTone;
 		private ExtendedAudioBuffer descendTone;
+		private ExtendedAudioBuffer missileProximityWarningTone;
 		private int guidanceMessageTime;
+		private int missileWarningTime;
 		private const int guidanceMessageInterval = 2000; // 2 seconds
 
 
@@ -807,6 +809,7 @@ namespace TDV
 			}
 			updateOpenPosition();
 			if (!isAI || autoPlayTarget) {
+				proximityWarningSystem();
 				if (Options.guidanceSystemEnabled)
 					guidanceSystem();
 				updateListener();
@@ -890,6 +893,7 @@ namespace TDV
 
 		private void guidanceSystem()
 		{
+			if (SapiSpeech.isSpeaking()) return;
 			if (Environment.TickCount - guidanceMessageTime < guidanceMessageInterval)
 			{
 				return;
@@ -906,8 +910,14 @@ namespace TDV
 						Missile missile = (Missile)p;
 						if (missile.weapon.getLockedTarget() != null && missile.weapon.getLockedTarget().Equals(this))
 						{
-							playSound(missileIncomingSound, true, true);
-							SapiSpeech.speak("Missile incoming! Evasive maneuvers!", SapiSpeech.SpeakFlag.interruptable);
+							if (Environment.TickCount - missileWarningTime > 2500) // 2.5 seconds
+							{
+								playSound(missileIncomingSound, true, true);
+								RelativePosition missilePos = getPosition(missile);
+								string evasionInstruction = getEvasionManeuver(missile, missilePos);
+								SapiSpeech.speak(evasionInstruction, SapiSpeech.SpeakFlag.none);
+								missileWarningTime = Environment.TickCount;
+							}
 							guidanceMessageTime = Environment.TickCount;
 							return; // Prioritize missile warnings
 						}
@@ -921,12 +931,11 @@ namespace TDV
 				missileIncomingSound.stop();
 			}
 
-			if (!weapon.isValidLock())
-			{
-				SapiSpeech.speak("No target locked for guidance.", SapiSpeech.SpeakFlag.interruptable);
-				guidanceMessageTime = Environment.TickCount;
-				return;
-			}
+            // If no valid lock, do nothing and return.
+            if (!weapon.isValidLock())
+            {
+                return;
+            }
 
 			Projector target = weapon.getLockedTarget();
 			RelativePosition relPos = getPosition(target);
@@ -937,7 +946,7 @@ namespace TDV
 			{
 				if (shortestRotation == Degrees.Rotation.clockwise)
 				{
-					SapiSpeech.speak($"Turn right to heading {targetDegrees()}.", SapiSpeech.SpeakFlag.interruptable);
+					SapiSpeech.speak($"Turn right to heading {targetDegrees()}.", SapiSpeech.SpeakFlag.none);
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(turnRightTone, true, true);
@@ -945,7 +954,7 @@ namespace TDV
 				}
 				else
 				{
-					SapiSpeech.speak($"Turn left to heading {targetDegrees()}.", SapiSpeech.SpeakFlag.interruptable);
+					SapiSpeech.speak($"Turn left to heading {targetDegrees()}.", SapiSpeech.SpeakFlag.none);
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(turnLeftTone, true, true);
@@ -967,7 +976,7 @@ namespace TDV
 			{
 				if (relPos.vDistance > 0)
 				{
-					SapiSpeech.speak("Descend to target.", SapiSpeech.SpeakFlag.interruptable);
+					SapiSpeech.speak("Descend to target.", SapiSpeech.SpeakFlag.none);
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(descendTone, true, true);
@@ -975,7 +984,7 @@ namespace TDV
 				}
 				else
 				{
-					SapiSpeech.speak("Ascend to target.", SapiSpeech.SpeakFlag.interruptable);
+					SapiSpeech.speak("Ascend to target.", SapiSpeech.SpeakFlag.none);
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(ascendTone, true, true);
@@ -994,6 +1003,103 @@ namespace TDV
 
 			guidanceMessageTime = Environment.TickCount;
 		}
+
+		private string getEvasionManeuver(Missile missile, RelativePosition missilePos)
+		{
+			string maneuver = "";
+
+			// Assess threat level based on distance
+			string urgency = "";
+			if (missilePos.distance < 2.0)
+			{
+				urgency = "Danger close! ";
+			}
+
+			// Vertical Evasion
+			if (missilePos.vDistance > 500)
+			{
+				maneuver += "Descend hard! ";
+			}
+			else if (missilePos.vDistance < -500)
+			{
+				maneuver += "Climb hard! ";
+			}
+
+			// Horizontal Evasion
+			if (missilePos.clockMark == 11 || missilePos.clockMark == 12 || missilePos.clockMark == 1) // Head on
+			{
+				maneuver += "Break left! ";
+			}
+			else if (missilePos.clockMark >= 5 && missilePos.clockMark <= 7) // Tailing
+			{
+				if (this.z > 5000)
+				{
+					maneuver += "Perform a Split-S! ";
+				}
+				else
+				{
+					maneuver += "Break hard and extend! ";
+				}
+			}
+			else if (missilePos.clockMark >= 2 && missilePos.clockMark <= 4) // From the right
+			{
+				maneuver += "Break left! ";
+			}
+			else if (missilePos.clockMark >= 8 && missilePos.clockMark <= 10) // From the left
+			{
+				maneuver += "Break right! ";
+			}
+
+			if (missile is CruiseMissile)
+			{
+				maneuver += "It's a cruise missile, try to outrun it or use terrain for cover! ";
+			}
+
+			if (string.IsNullOrWhiteSpace(maneuver))
+			{
+				maneuver = "Evasive maneuvers!";
+			}
+
+			return $"Missile at {missilePos.clockMark} o'clock! {urgency}{maneuver}";
+		}
+
+		private void proximityWarningSystem()
+		{
+			bool missileClose = false;
+			List<Projector> projectiles = Interaction.getProjectiles(this);
+			if (projectiles != null)
+			{
+				foreach (Projector p in projectiles)
+				{
+					if (p is Missile)
+					{
+						Missile missile = (Missile)p;
+						if (missile.weapon.getLockedTarget() != null && missile.weapon.getLockedTarget().Equals(this))
+						{
+							RelativePosition missilePos = getPosition(missile);
+							if (missilePos.distance < 2.0 && Math.Abs(missilePos.vDistance) < 500)
+							{
+								missileClose = true;
+								break; // Found a close missile, no need to check others
+							}
+						}
+					}
+				}
+			}
+
+			if (missileClose)
+			{
+				playSound(missileProximityWarningTone, false, true); // loop
+			}
+			else
+			{
+				if (DSound.isPlaying(missileProximityWarningTone))
+				{
+					missileProximityWarningTone.stop();
+				}
+			}
+		}
+
 
 		private void interact()
 		{
@@ -1504,7 +1610,7 @@ namespace TDV
 				if (selfDestAlarm == null)
 					selfDestAlarm = DSound.LoadSound(soundPath + "alarm9.wav");
 				if (missileIncomingSound == null)
-					missileIncomingSound = DSound.LoadSound(soundPath + "\\missileIncoming.ogg");
+					missileIncomingSound = DSound.LoadSound(soundPath + "\\missileIncoming.wav");
 				if (turnLeftTone == null)
 					turnLeftTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(440, 0.5));
 				if (turnRightTone == null)
@@ -1513,6 +1619,8 @@ namespace TDV
 					ascendTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(660, 0.5));
 				if (descendTone == null)
 					descendTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(330, 0.5));
+				if (missileProximityWarningTone == null)
+					missileProximityWarningTone = DSound.LoadTone(ToneGenerator.GenerateTriangleWave(440, 0.5));
 			}
 		}
 
