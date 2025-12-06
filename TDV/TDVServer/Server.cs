@@ -354,6 +354,9 @@ namespace TDVServer
 		private static TcpListener[] connections;
 		private static Thread inputThread;
 		private static LoggingLevels logLevel = LoggingLevels.indiscriminate;
+		private static UdpClient udpListener;
+		private static Thread udpListenerThread;
+		private const int DiscoveryPort = 4446;
 
 		public static void Main(String[] args)
 		{
@@ -434,6 +437,8 @@ namespace TDVServer
 			loadSettings();
 			inputThread = new Thread(inputHandler);
 			inputThread.Start();
+			udpListenerThread = new Thread(listenForDiscoveryRequests);
+			udpListenerThread.Start();
 			try {
 				ports = ((testing) ? new int[] { 31111 } : new int[] { 4444, 4445, 4567, 6969, 60385, 32000 });
 				//ports = new int[]{4445});
@@ -1124,6 +1129,47 @@ namespace TDVServer
 						break;
 				}
 				System.Console.WriteLine("Ok");
+			}
+		}
+
+		private static void listenForDiscoveryRequests()
+		{
+			try
+			{
+				udpListener = new UdpClient(DiscoveryPort);
+				IPEndPoint groupEP = new IPEndPoint(IPAddress.Any, DiscoveryPort);
+
+				while (true)
+				{
+					byte[] bytes = udpListener.Receive(ref groupEP);
+					string request = Encoding.ASCII.GetString(bytes, 0, bytes.Length);
+
+					if (request.Equals("TDV_DISCOVERY_REQUEST"))
+					{
+						// Respond with server info
+						string localIP = "";
+						foreach (var ip in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+						{
+							if (ip.AddressFamily == AddressFamily.InterNetwork)
+							{
+								localIP = ip.ToString();
+								break;
+							}
+						}
+
+						string responseStr = $"TDV_DISCOVERY_RESPONSE:{localIP}:{ports[0]}";
+						byte[] responseBytes = Encoding.ASCII.GetBytes(responseStr);
+						udpListener.Send(responseBytes, responseBytes.Length, groupEP);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				output(LoggingLevels.error, "UDP listener error: " + e.Message);
+			}
+			finally
+			{
+				udpListener.Close();
 			}
 		}
 

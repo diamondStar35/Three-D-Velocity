@@ -18,6 +18,8 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Net.Sockets;
+using System.Net;
 
 namespace TDV
 {
@@ -621,6 +623,45 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 			System.Environment.Exit(0);
 		}
 
+		private static List<string> findLocalGames()
+		{
+			List<string> servers = new List<string>();
+			UdpClient client = new UdpClient();
+			client.EnableBroadcast = true;
+			byte[] requestData = Encoding.ASCII.GetBytes("TDV_DISCOVERY_REQUEST");
+			IPEndPoint broadcastEndpoint = new IPEndPoint(IPAddress.Broadcast, 4446);
+			client.Send(requestData, requestData.Length, broadcastEndpoint);
+
+			client.Client.ReceiveTimeout = 3000; // 3 seconds timeout
+
+			while (true)
+			{
+				try
+				{
+					IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Any, 0);
+					byte[] responseData = client.Receive(ref serverEndpoint);
+					string responseStr = Encoding.ASCII.GetString(responseData);
+
+					if (responseStr.StartsWith("TDV_DISCOVERY_RESPONSE:"))
+					{
+						string[] parts = responseStr.Split(':');
+						if (parts.Length == 3)
+						{
+							servers.Add(parts[1] + ":" + parts[2]);
+						}
+					}
+				}
+				catch (SocketException)
+				{
+					// Timeout occurred
+					break;
+				}
+			}
+
+			client.Close();
+			return servers;
+		}
+
 		/* If playing online, will return to the hangar,
 		 * else will return to main menu of game.
 		 * */
@@ -642,16 +683,58 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 				/* We will add the player's craft here by requesting a create, but all subsequent adds will be done by Client.
 				 * Once all adds are complete, client will receive a startGame command from the server.
 				 * */
+				string[] menuOptions = { "Join a game on the local network", "Enter the IP address or host manually", "Go back" };
+				int choice = GenerateMenu("Multiplayer", menuOptions);
+
+				string ip = "";
 				bool connected = false;
-				SapiSpeech.speak("Enter IP address or domain to connect to.", SapiSpeech.SpeakFlag.interruptable);
-				String ip = Common.mainGUI.receiveInput(Options.ipOrDomain, false).Trim();
-				if (ip.Equals("")) {
-					menuNotifier.Set();
-					return;
+
+				switch (choice)
+				{
+					case 0: // Join a game on the local network
+						SapiSpeech.speak("Searching for games on the local network...", SapiSpeech.SpeakFlag.interruptable);
+						List<string> servers = findLocalGames();
+						if (servers.Count > 0)
+						{
+							int serverChoice = GenerateMenu("Select a server:", servers.ToArray());
+							if (serverChoice != -1)
+							{
+								string[] serverParts = servers[serverChoice].Split(':');
+								ip = serverParts[0];
+								// The port is included in the serverParts[1], but Client.connect will handle it.
+							}
+							else
+							{
+								menuNotifier.Set();
+								return;
+							}
+						}
+						else
+						{
+							SapiSpeech.speak("No games found on the local network.", SapiSpeech.SpeakFlag.interruptable);
+							menuNotifier.Set();
+							return;
+						}
+						break;
+					case 1: // Enter the IP address or host manually
+						SapiSpeech.speak("Enter IP address or domain to connect to.", SapiSpeech.SpeakFlag.interruptable);
+						ip = Common.mainGUI.receiveInput(Options.ipOrDomain, false).Trim();
+						if (ip.Equals(""))
+						{
+							menuNotifier.Set();
+							return;
+						}
+						break;
+					case -1: // Go back
+					case 2:
+						menuNotifier.Set();
+						return;
 				}
+
 				SapiSpeech.speak("Enter your call sign. This is how you'll be known on the server.", SapiSpeech.SpeakFlag.interruptable);
 				String callSign = Common.mainGUI.receiveInput(Options.callSign, false).Trim();
-				if (callSign.Equals("")) {
+				if (callSign.Equals(""))
+				{
 					menuNotifier.Set();
 					return;
 				}
@@ -663,7 +746,7 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 				failedConnect = !connected;
 				if (!connected) {
 					if ((Client.getMessages() & Client.LoginMessages.wrongCredentials) != Client.LoginMessages.wrongCredentials)
-						SapiSpeech.playOrSpeakMenu(DSound.NSoundPath + "\\c2.wav", "Could not connect. Check your connection and try again. If you are running a firewall, make sure it allows all connection attempts for Three-D Velocity.");
+						SapiSpeech.playOrSpeakMenu(DSound.NSoundPath + "\\c2.wav", "Could not connect. Please ensure the IP address or domain name is correct and that the server is running. Note that you do not need to add http:// or https:// to the address. If you are running a firewall, make sure it allows all connection attempts for Three-D Velocity.");
 				} else { //connected
 					fadeMusic();
 					buildOnlineMenu();
