@@ -500,10 +500,8 @@ namespace TDV
 			{
 				if (isAI && !autoPlayTarget)
 				{
-					if (Options.monoAudioCompatibilityMode)
-						DSound.PlaySoundMonoCompat(theSound, stopFlag, loopFlag, x, z, y);
-					else if (!forceStareo)
-						DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, z, y, velocity.X, velocity.Z, velocity.Y);
+					if (!forceStareo)
+						DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, z, y, velocity.X, velocity.Y, velocity.Z);
 					else
 						DSound.PlaySound(theSound, stopFlag, loopFlag);
 				}

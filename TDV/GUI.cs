@@ -481,8 +481,8 @@ namespace TDV
 							Common.playUntilKeyPress(DSound.SoundPath + "\\speakertest.ogg");
 							break;
 						case 4: //options
-							string[] sv_oArray = { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav", "speech_mode.wav", "mono_audio_compat.wav", "tonal_guidance.wav", "hrtf_audio.wav", "sound_range.wav" };
-							string[] sr_oArray = { "Map keys", "Change input device", "Change performance options", "Select screen reader", "Change Speech Mode", "Mono audio compatibility", "Tonal guidance", "HRTF audio", "Sound Range" };
+							string[] sv_oArray = { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav", "speech_mode.wav", "tonal_guidance.wav", "hrtf_audio.wav", "sound_range.wav" };
+							string[] sr_oArray = { "Map keys", "Change input device", "Change performance options", "Select screen reader", "Change Speech Mode", "Tonal guidance", "HRTF audio", "Sound Range" };
 
 							int oIndex = 0;
 							while (oIndex != -1) {
@@ -515,16 +515,13 @@ namespace TDV
 										setSVMode();
 										oIndex = -1; // Exit options menu to apply change
 										break;
-									case 5: // Mono audio compatibility
-										toggleMonoAudioMode();
-										break;
-									case 6: // Tonal guidance
+									case 5: // Tonal guidance
 										toggleTonalGuidanceMode();
 										break;
-									case 7: // HRTF audio
+									case 6: // HRTF audio
 										toggleHrtfMode();
 										break;
-									case 8: // Sound Range
+									case 7: // Sound Range
 										changeSoundRange();
 										break;
 								}
@@ -641,30 +638,6 @@ namespace TDV
 				Options.writeToFile();
 			}
 		}
-
-		private void toggleMonoAudioMode()
-		{
-			string[] sv_choices = { "on.wav", "off.wav" };
-			string[] sr_choices = { "On", "Off" };
-			int currentChoice = Options.monoAudioCompatibilityMode ? 0 : 1;
-
-			int choice;
-			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
-			{
-				choice = Common.sVGenerateMenu("mono_audio_compat_prompt.wav", sv_choices, sr_choices, currentChoice, "Enable mono audio compatibility mode. This will represent object positions using panning and pitch instead of 3D audio.", Common.getIncDecVol(), false);
-			}
-			else
-			{
-				choice = Common.GenerateMenu("Enable mono audio compatibility mode. This will represent object positions using panning and pitch instead of 3D audio.", sr_choices, currentChoice, Common.getIncDecVol());
-			}
-
-			if (choice != -1)
-			{
-				Options.monoAudioCompatibilityMode = (choice == 0);
-				Options.writeToFile();
-			}
-		}
-
 
 		private void changePerformance()
 		{

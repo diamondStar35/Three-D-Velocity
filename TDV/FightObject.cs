@@ -257,10 +257,7 @@ namespace TDV
 		{
 			if (isAI)
 			{
-				if (Options.monoAudioCompatibilityMode)
-					DSound.PlaySoundMonoCompat(theSound, stopFlag, loopFlag, x, 0, y);
-				else
-					DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, 0, y);
+					DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, y, 0);
 			}
 			else
 				DSound.PlaySound(theSound, stopFlag, loopFlag);

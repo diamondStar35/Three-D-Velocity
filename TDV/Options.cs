@@ -158,7 +158,6 @@ namespace TDV
 		private static bool m_isLoading;
 		private static bool m_mutingThroughExternalThread;
 		private static bool m_isDemo = true;
-		private static bool m_monoAudioCompatibilityMode = false;
 
 		public static bool isDemo
 		{
@@ -170,12 +169,6 @@ namespace TDV
 		{
 			get;
 			set;
-		}
-
-		public static bool monoAudioCompatibilityMode
-		{
-			get { return m_monoAudioCompatibilityMode; }
-			set { m_monoAudioCompatibilityMode = value; }
 		}
 
 		public static bool guidanceSystemEnabled { get; set; } = false;
@@ -347,7 +340,6 @@ namespace TDV
 			s.Write((byte)menuVoiceMode);
 			s.Write((byte)statusVoiceMode);
 			s.Write(SapiSpeech.screenReaderRate);
-			s.Write(monoAudioCompatibilityMode);
 			s.Write(guidanceSystemEnabled);
 			s.Write(tonalGuidanceEnabled);
 			s.Write(hrtfEnabled);
@@ -405,7 +397,6 @@ namespace TDV
 				statusVoiceMode = (VoiceModes)sv;
 				float readerRate = s.ReadSingle();
 				SapiSpeech.screenReaderRate = readerRate;
-				m_monoAudioCompatibilityMode = s.ReadBoolean();
 				guidanceSystemEnabled = s.ReadBoolean();
 				tonalGuidanceEnabled = s.ReadBoolean();
 				hrtfEnabled = s.ReadBoolean();

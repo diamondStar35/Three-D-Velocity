@@ -57,6 +57,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		[StructLayout(LayoutKind.Sequential)]
 		public struct HrtfApoInit
 		{
+			public IntPtr pVolumeCurve;
 			public IntPtr DistanceDecay;
 			public IntPtr Environment;
 		}
@@ -100,7 +101,28 @@ namespace BPCSharedComponent.ExtendedAudio
 #if HRTF_SUPPORT
 			CoInitializeEx(IntPtr.Zero, 0);
 			HrtfApoInit init = new HrtfApoInit();
+			X3DAUDIO_DISTANCE_CURVE_POINT[] volumePoints = new X3DAUDIO_DISTANCE_CURVE_POINT[]
+			{
+				new X3DAUDIO_DISTANCE_CURVE_POINT { Distance = 0.0f, DspSetting = 1.0f },
+				new X3DAUDIO_DISTANCE_CURVE_POINT { Distance = 1.0f, DspSetting = 1.0f },
+				new X3DAUDIO_DISTANCE_CURVE_POINT { Distance = 1000.0f, DspSetting = 0.0f }
+			};
+			X3DAUDIO_DISTANCE_CURVE volumeCurve = new X3DAUDIO_DISTANCE_CURVE
+			{
+				pPoints = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(X3DAUDIO_DISTANCE_CURVE_POINT)) * volumePoints.Length),
+				NumPoints = volumePoints.Length
+			};
+			IntPtr current = volumeCurve.pPoints;
+			foreach (var point in volumePoints)
+			{
+				Marshal.StructureToPtr(point, current, false);
+				current = (IntPtr)((long)current + Marshal.SizeOf(typeof(X3DAUDIO_DISTANCE_CURVE_POINT)));
+			}
+			init.pVolumeCurve = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(X3DAUDIO_DISTANCE_CURVE)));
+			Marshal.StructureToPtr(volumeCurve, init.pVolumeCurve, false);
 			CreateHrtfApo(ref init, out hrtfApo);
+			Marshal.FreeHGlobal(volumeCurve.pPoints);
+			Marshal.FreeHGlobal(init.pVolumeCurve);
 #endif
 			//get the listener:
 			setListener();
@@ -265,7 +287,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		{
 			Emitter emitter = new Emitter {
 				ChannelCount = 1,
-				CurveDistanceScaler = curveDistanceScaler,
+				CurveDistanceScaler = 1.0f,
 				OrientFront = new Vector3(0, 0, 1),
 				OrientTop = new Vector3(0, 1, 0),
 				Position = new Vector3(x, y, z),
@@ -274,47 +296,6 @@ namespace BPCSharedComponent.ExtendedAudio
 			sound.play(stop, loop);
 			DspSettings dspSettings = x3DAudio.Calculate(listener, emitter, flags, sound.getVoiceDetails().InputChannelCount, mainMasteringVoice.VoiceDetails.InputChannelCount);
 			sound.apply3D(dspSettings, sound.getVoiceDetails().InputChannelCount, mainMasteringVoice.VoiceDetails.InputChannelCount, flags);
-		}
-
-		public static void PlaySoundMonoCompat(ExtendedAudioBuffer theSound, bool stopFlag, bool loopFlag, float objX, float objY, float objZ)
-		{
-			// 1. Get positions
-			Vector3 playerPos = getListenerPosition();
-			Vector3 aiPos = new Vector3(objX, objY, objZ);
-
-			// 2. Relative position and distance
-			Vector3 relativePos = aiPos - playerPos;
-			float distance = relativePos.Length();
-
-			// 3. Volume
-			float maxAudibleDistance = 20000.0f;
-			float volume = 1.0f - (distance / maxAudibleDistance);
-			volume = Math.Max(0.0f, Math.Min(1.0f, volume));
-			theSound.setVolume(volume);
-
-			// 4. Pan
-			Vector2 relativePos2D = new Vector2(relativePos.X, relativePos.Z);
-			Vector2 forward2D = new Vector2(getListenerOrientFront().X, getListenerOrientFront().Z);
-
-			relativePos2D.Normalize();
-			forward2D.Normalize();
-
-			float dot = Vector2.Dot(forward2D, relativePos2D);
-			float det = forward2D.X * relativePos2D.Y - forward2D.Y * relativePos2D.X;
-			float angle = (float)Math.Atan2(det, dot);
-
-			float pan = angle / ((float)Math.PI / 2.0f);
-			pan = Math.Max(-1.0f, Math.Min(1.0f, pan));
-			setPan(theSound, pan);
-
-			// 5. Pitch for elevation
-			float elevationDifference = relativePos.Y;
-			float pitchSemitones = elevationDifference / 100.0f;
-			pitchSemitones = Math.Max(-12.0f, Math.Min(12.0f, pitchSemitones));
-			theSound.setFrequency(pitchSemitones);
-
-			// 6. Play sound
-			PlaySound(theSound, stopFlag, loopFlag);
 		}
 
 

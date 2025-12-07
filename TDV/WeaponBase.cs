@@ -252,7 +252,7 @@ namespace TDV
 		{
 			if (Options.hrtfEnabled)
 			{
-				DSound.PlaySound3d(s, stopFlag, loopFlag, x, z, y, velocity.X, velocity.Z, velocity.Y, CalculateFlags.Matrix | CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+				DSound.PlaySound3d(s, stopFlag, loopFlag, x, y, z, velocity.X, velocity.Y, velocity.Z, CalculateFlags.Matrix | CalculateFlags.Doppler, Common.getCurveDistanceScaler());
 			}
 			else
 			{

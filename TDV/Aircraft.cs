@@ -3947,8 +3947,7 @@ weapon.firingRange);
 						check(Action.switchWeapon, true);
 						check(Action.activateAfterburners, true);
 						check(Action.toggleGuidanceSystem, true);
-						if (Options.monoAudioCompatibilityMode && DXInput.isFirstPress(Key.C))
-							actionsArray.Add(Action.ReportTargetDetails);
+
 
 						check(Action.togglePointOfView, true);
 						check(Action.optionsMenu, true);
