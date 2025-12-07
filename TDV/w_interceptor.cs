@@ -61,8 +61,7 @@ namespace TDV
 			}
 
 			performing = true;
-			playSound3d(missileSound, false, true);
-			if (!inVerticalRange(10))
+			            playSound3d(missileSound, false, true);			if (!inVerticalRange(10))
 			{
 				if (z > origTarget.z)
 					z -= 10;

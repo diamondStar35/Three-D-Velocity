@@ -43,11 +43,21 @@ namespace TDV
 			teamDeath,
 			testing
 		}
+		public enum SoundRange : byte
+		{
+			VeryClose,
+			Close,
+			Medium,
+			Far,
+			VeryFar
+		}
 		public static VoiceModes menuVoiceMode
 		{
 			get;
 			set;
 		}
+		public static SoundRange soundRange { get; set; } = SoundRange.Medium;
+
 		public static VoiceModes statusVoiceMode
 		{
 			get;
@@ -170,6 +180,7 @@ namespace TDV
 
 		public static bool guidanceSystemEnabled { get; set; } = false;
 		public static bool tonalGuidanceEnabled { get; set; } = false;
+		public static bool hrtfEnabled { get; set; } = false;
 
 		public static bool RPAutoTrigger
 		{
@@ -339,6 +350,8 @@ namespace TDV
 			s.Write(monoAudioCompatibilityMode);
 			s.Write(guidanceSystemEnabled);
 			s.Write(tonalGuidanceEnabled);
+			s.Write(hrtfEnabled);
+			s.Write((byte)soundRange);
 			s.Flush();
 			s.Close();
 		}
@@ -395,6 +408,8 @@ namespace TDV
 				m_monoAudioCompatibilityMode = s.ReadBoolean();
 				guidanceSystemEnabled = s.ReadBoolean();
 				tonalGuidanceEnabled = s.ReadBoolean();
+				hrtfEnabled = s.ReadBoolean();
+				soundRange = (SoundRange)s.ReadByte();
 			}
 			catch (Exception e)
 			{

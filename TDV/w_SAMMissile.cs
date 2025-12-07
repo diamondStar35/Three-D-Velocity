@@ -55,8 +55,8 @@ namespace TDV
 			}
 
 			performing = true;
-			base.onTick();
 			playSound3d(moveSound, false, false);
+			base.onTick();
 			if (inFiringRange())
 			{
 				moveSound.stop();

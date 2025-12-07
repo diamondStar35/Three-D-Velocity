@@ -1666,5 +1666,23 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 				throw new ArgumentException($"The name {name} was not found in the friendlyNames hash table.");
 			return friendlyNames[name];
 		}
+		public static float getCurveDistanceScaler()
+		{
+			switch (Options.soundRange)
+			{
+				case Options.SoundRange.VeryClose:
+					return 1.0f;
+				case Options.SoundRange.Close:
+					return 10.0f;
+				case Options.SoundRange.Medium:
+					return 50.0f;
+				case Options.SoundRange.Far:
+					return 100.0f;
+				case Options.SoundRange.VeryFar:
+					return 200.0f;
+				default:
+					return 50.0f;
+			}
+		}
 	}
 }

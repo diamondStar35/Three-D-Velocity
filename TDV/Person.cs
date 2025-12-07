@@ -504,7 +504,7 @@ namespace TDV
 		public override void playCrashSound(int x, int y)
 		{
 			if (crashSound == null)
-				crashSound = DSound.LoadSoundAlwaysLoud(DSound.SoundPath + "\\a_fwall.wav");
+				crashSound = DSound.LoadSound(DSound.SoundPath + "\\a_fwall.wav");
 			DSound.PlaySound3d(crashSound, true, false, x, 0, y);
 		}
 
@@ -635,7 +635,14 @@ namespace TDV
 				return;
 			if (waitingToShoot || (DateTime.Now - lastShootTime).TotalSeconds < maxShootTime)
 				return;
-			DSound.PlaySound3d(lockSound, true, false, shootX = target.x, 0, shootY = target.y);
+			if (Options.hrtfEnabled)
+			{
+				DSound.PlaySound3d(lockSound, true, false, shootX = target.x, 0, shootY = target.y);
+			}
+			else
+			{
+				DSound.PlaySound(lockSound, true, false);
+			}
 			shootTarget = target;
 			waitingToShoot = true;
 			//shoot time is set in shoot method because we need to wait for locksound to stop first.

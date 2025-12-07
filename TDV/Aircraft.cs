@@ -2439,11 +2439,17 @@ weapon.firingRange);
 				if (p.isAhead) {
 					if (p.degreesDifference > 5) {
 						targetSolutionSound3.stop();
-						float tx = x;
-						float tY = y;
-						Degrees.moveObject(ref tx, ref tY, p.degrees, 1f, 1f);
+						float tx = t.x;
+						float tY = t.y;
 						targetSolutionSound.setFrequency(targetSolutionFreqCoefficient*p.degreesDifference);
-						DSound.PlaySound3d(targetSolutionSound, false, true, tx, (pov == PointOfView.interior) ? z : 0f, tY, flags: SharpDX.X3DAudio.CalculateFlags.Matrix);
+						if (Options.hrtfEnabled)
+						{
+							DSound.PlaySound3d(targetSolutionSound, false, true, tx, t.z, tY, flags: SharpDX.X3DAudio.CalculateFlags.Matrix, curveDistanceScaler: Common.getCurveDistanceScaler());
+						}
+						else
+						{
+							DSound.PlaySound(targetSolutionSound, false, true);
+						}
 					} else { //if degree difference==0
 						targetSolutionSound.stop();
 						playSound(targetSolutionSound3, false, true);

@@ -481,8 +481,8 @@ namespace TDV
 							Common.playUntilKeyPress(DSound.SoundPath + "\\speakertest.ogg");
 							break;
 						case 4: //options
-							string[] sv_oArray = { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav", "speech_mode.wav", "mono_audio_compat.wav", "tonal_guidance.wav" };
-							string[] sr_oArray = { "Map keys", "Change input device", "Change performance options", "Select screen reader", "Change Speech Mode", "Mono audio compatibility", "Tonal guidance" };
+							string[] sv_oArray = { "mainmenu_5_1.wav", "mainmenu_5_2.wav", "mainmenu_5_3.wav", "mainmenu_5_4.wav", "speech_mode.wav", "mono_audio_compat.wav", "tonal_guidance.wav", "hrtf_audio.wav", "sound_range.wav" };
+							string[] sr_oArray = { "Map keys", "Change input device", "Change performance options", "Select screen reader", "Change Speech Mode", "Mono audio compatibility", "Tonal guidance", "HRTF audio", "Sound Range" };
 
 							int oIndex = 0;
 							while (oIndex != -1) {
@@ -521,6 +521,12 @@ namespace TDV
 									case 6: // Tonal guidance
 										toggleTonalGuidanceMode();
 										break;
+									case 7: // HRTF audio
+										toggleHrtfMode();
+										break;
+									case 8: // Sound Range
+										changeSoundRange();
+										break;
 								}
 							}
 							break;
@@ -538,6 +544,53 @@ namespace TDV
 			if (Options.mode != Options.Modes.multiplayer)
 				Common.fadeMusic();
 		}
+
+		private void changeSoundRange()
+		{
+			string[] sv_choices = { "sound_range_very_close.wav", "sound_range_close.wav", "sound_range_medium.wav", "sound_range_far.wav", "sound_range_very_far.wav" };
+			string[] sr_choices = { "Very Close (up to 1 mile away)", "Close (up to 5 miles away)", "Medium (up to 10 miles away)", "Far (up to 20 miles away)", "Very Far (up to 50 miles away)" };
+			int currentChoice = (int)Options.soundRange;
+
+			int choice;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				choice = Common.sVGenerateMenu("sound_range_prompt.wav", sv_choices, sr_choices, currentChoice, "Select a sound range.", Common.getIncDecVol(), false);
+			}
+			else
+			{
+				choice = Common.GenerateMenu("Select a sound range.", sr_choices, currentChoice, Common.getIncDecVol());
+			}
+
+			if (choice != -1)
+			{
+				Options.soundRange = (Options.SoundRange)choice;
+				Options.writeToFile();
+			}
+		}
+
+		private void toggleHrtfMode()
+		{
+			string[] sv_choices = { "on.wav", "off.wav" };
+			string[] sr_choices = { "On", "Off" };
+			int currentChoice = Options.hrtfEnabled ? 0 : 1;
+
+			int choice;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				choice = Common.sVGenerateMenu("hrtf_audio_prompt.wav", sv_choices, sr_choices, currentChoice, "Enable HRTF audio. This will provide a more realistic 3D audio experience.", Common.getIncDecVol(), false);
+			}
+			else
+			{
+				choice = Common.GenerateMenu("Enable HRTF audio. This will provide a more realistic 3D audio experience.", sr_choices, currentChoice, Common.getIncDecVol());
+			}
+
+			if (choice != -1)
+			{
+				Options.hrtfEnabled = (choice == 0);
+				Options.writeToFile();
+			}
+		}
+
 
 		private void switchScreenReader()
 		{

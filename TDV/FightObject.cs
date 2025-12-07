@@ -270,9 +270,13 @@ namespace TDV
 		{
 			ExtendedAudioBuffer s = null;
 			if (isAI)
-				s = DSound.LoadSoundAlwaysLoud(DSound.SoundPath + "\\a_" + filename);
+			{
+				s = DSound.LoadSound(DSound.SoundPath + "\\a_" + filename);
+			}
 			else
-				s = DSound.LoadSoundAlwaysLoud(DSound.SoundPath + "\\" + filename);
+			{
+				s = DSound.LoadSound(DSound.SoundPath + "\\" + filename);
+			}
 			return s;
 		}
 

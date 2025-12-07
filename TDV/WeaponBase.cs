@@ -12,6 +12,7 @@ using System.Windows.Forms;
 using BPCSharedComponent.VectorCalculation;
 using BPCSharedComponent.ExtendedAudio;
 using BPCSharedComponent.ExtendedAudio;
+using SharpDX.X3DAudio;
 namespace TDV
 {
 	public abstract class WeaponBase : Projector, Explosive
@@ -119,10 +120,26 @@ namespace TDV
 				   Interaction.RangeFlag.existing);
 			updateTotalDistance();
 			move();
-			if (Options.mode == Options.Modes.mission
-				&& followTarget
-				&& origTarget != null)
-				z = origTarget.z;
+			if (followTarget && origTarget != null && origTarget is Aircraft)
+			{
+				float targetZ = ((Aircraft)origTarget).z;
+				if (z < targetZ)
+				{
+					z += speed / 2;
+					if (z > targetZ)
+					{
+						z = targetZ;
+					}
+				}
+				else if (z > targetZ)
+				{
+					z -= speed / 2;
+					if (z < targetZ)
+					{
+						z = targetZ;
+					}
+				}
+			}
 			if (damage < 1) {
 				expl = DSound.LoadSound(DSound.SoundPath + "\\m4-1.wav");
 				DSound.PlaySound(expl, true, false);
@@ -233,7 +250,14 @@ namespace TDV
 		/// <param name="loopFlag">True if this sound should loop.</param>
 		protected void playSound3d(ExtendedAudioBuffer s, bool stopFlag, bool loopFlag)
 		{
-			DSound.PlaySound3d(s, stopFlag, loopFlag, x, z, y);
+			if (Options.hrtfEnabled)
+			{
+				DSound.PlaySound3d(s, stopFlag, loopFlag, x, z, y, velocity.X, velocity.Z, velocity.Y, CalculateFlags.Matrix | CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+			}
+			else
+			{
+				DSound.PlaySound(s, stopFlag, loopFlag);
+			}
 		}
 
 		protected void fireHitEvent(Projector target, int damageAmount)

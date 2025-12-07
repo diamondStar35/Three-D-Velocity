@@ -12,6 +12,7 @@ using SharpDX.XAudio2;
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace BPCSharedComponent.ExtendedAudio
@@ -42,12 +43,40 @@ namespace BPCSharedComponent.ExtendedAudio
 		private static MasteringVoice mainMasteringVoice, musicMasteringVoice, alwaysLoudMasteringVoice, cutScenesMasteringVoice;
 		private static X3DAudio x3DAudio;
 		private static Listener listener;
+#if HRTF_SUPPORT
+		private static IXAPO hrtfApo;
+#endif
 		//used to hold sounds path
 		public static string SoundPath;
 		//used to hold narratives
 		public static string NSoundPath;
 		//used to hold numbers
 		public static string NumPath;
+
+#if HRTF_SUPPORT
+		[StructLayout(LayoutKind.Sequential)]
+		public struct HrtfApoInit
+		{
+			public IntPtr DistanceDecay;
+			public IntPtr Environment;
+		}
+
+		[ComImport]
+		[Guid("a9533d3c-c3b3-446a-b286-1e66b2344781")]
+		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+		public interface IXAPO
+		{
+		}
+
+		[DllImport("HrtfApo.dll", CallingConvention = CallingConvention.StdCall)]
+		public static extern int CreateHrtfApo(
+			[In] ref HrtfApoInit init,
+			[Out, MarshalAs(UnmanagedType.IUnknown)] out IXAPO xApo
+		);
+
+		[DllImport("ole32.dll")]
+		public static extern int CoInitializeEx(IntPtr pvReserved, int dwCoInit);
+#endif
 
 		/// <summary>
 		/// Initializes the sound library for playback.
@@ -68,6 +97,11 @@ namespace BPCSharedComponent.ExtendedAudio
 			alwaysLoudMasteringVoice = new MasteringVoice(alwaysLoudDevice);
 			cutScenesDevice = new XAudio2();
 			cutScenesMasteringVoice = new MasteringVoice(cutScenesDevice);
+#if HRTF_SUPPORT
+			CoInitializeEx(IntPtr.Zero, 0);
+			HrtfApoInit init = new HrtfApoInit();
+			CreateHrtfApo(ref init, out hrtfApo);
+#endif
 			//get the listener:
 			setListener();
 		}
@@ -89,8 +123,22 @@ namespace BPCSharedComponent.ExtendedAudio
 			AudioBuffer buffer = new AudioBuffer { Stream = stream.ToDataStream(), AudioBytes = (int)stream.Length, Flags = SharpDX.XAudio2.BufferFlags.EndOfStream };
 			// We can now safely close the stream.
 			stream.Close();
+#if HRTF_SUPPORT
+			if (hrtfApo != null && TDV.Options.hrtfEnabled)
+			{
+				EffectDescriptor effectDescriptor = new EffectDescriptor(hrtfApo);
+				SourceVoice sv = new SourceVoice(device, format, VoiceFlags.None, 5.0f, notificationsSupport, new EffectDescriptor[] { effectDescriptor });
+				return new ExtendedAudioBuffer(buffer, sv);
+			}
+			else
+			{
+				SourceVoice sv = new SourceVoice(device, format, VoiceFlags.None, 5.0f, notificationsSupport);
+				return new ExtendedAudioBuffer(buffer, sv);
+			}
+#else
 			SourceVoice sv = new SourceVoice(device, format, VoiceFlags.None, 5.0f, notificationsSupport);
 			return new ExtendedAudioBuffer(buffer, sv);
+#endif
 		}
 
 		/// <summary>
@@ -213,11 +261,11 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="vy">The y component of the velocity  vector.</param>
 		/// <param name="vz">The z component of the velocity vector.</param>
 		/// <param name="flags">The 3D flags to calculate. The default will calculate volume and doppler shift. This parameter is useful if it is not desirable for XAudio2 to calculate doppler on sounds that modify their own frequencies as an example; in this case, the flags should omit doppler.</param>
-		public static void PlaySound3d(ExtendedAudioBuffer sound, bool stop, bool loop, float x, float y, float z, float vx=0, float vy=0, float vz=0, CalculateFlags flags = CalculateFlags.Matrix | CalculateFlags.Doppler)
+		public static void PlaySound3d(ExtendedAudioBuffer sound, bool stop, bool loop, float x, float y, float z, float vx=0, float vy=0, float vz=0, CalculateFlags flags = CalculateFlags.Matrix | CalculateFlags.Doppler, float curveDistanceScaler = 1.0f)
 		{
 			Emitter emitter = new Emitter {
 				ChannelCount = 1,
-				CurveDistanceScaler = 1.0f,
+				CurveDistanceScaler = curveDistanceScaler,
 				OrientFront = new Vector3(0, 0, 1),
 				OrientTop = new Vector3(0, 1, 0),
 				Position = new Vector3(x, y, z),
