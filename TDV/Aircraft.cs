@@ -1602,7 +1602,7 @@ namespace TDV
 				if (targetSolutionSound == null)
 					targetSolutionSound = DSound.LoadSound(DSound.SoundPath + "\\alarm5.wav");
 				if (targetSolutionSound3 == null)
-					targetSolutionSound3 = loadSound(soundPath + "alarm7.wav");
+					targetSolutionSound3 = DSound.LoadSound(DSound.SoundPath + "\\alarm7.wav", true);
 				if (altitudeWarningAlarm == null)
 					altitudeWarningAlarm = loadSound(soundPath + "alarm1.wav");
 				if (turnSignal == null)
@@ -2406,8 +2406,19 @@ weapon.firingRange);
 
 			if (weapon.weaponIndex == WeaponTypes.missileInterceptor) {
 				targetSolutionSound.stop();
-				if (weapon.getInterceptorLock() != null)
-					playSound(targetSolutionSound3, false, true);
+				if (weapon.getInterceptorLock() != null) {
+					float tx = weapon.getInterceptorLock().x;
+					float tY = weapon.getInterceptorLock().y;
+					Projector t = weapon.getInterceptorLock();
+					if (Options.hrtfEnabled)
+					{
+						DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+					}
+					else
+					{
+						DSound.PlaySound(targetSolutionSound3, false, true);
+					}
+				}
 				else
 					targetSolutionSound3.stop();
 				return;
@@ -2417,7 +2428,17 @@ weapon.firingRange);
 				targetSolutionSound.stop();
 				if (weapon.cruiseMissileLocked()) {
 					if (weapon.inFiringRange()) {
-						playSound(targetSolutionSound3, false, true);
+						float tx = weapon.getLockedTarget().x;
+						float tY = weapon.getLockedTarget().y;
+						Projector t = weapon.getLockedTarget();
+						if (Options.hrtfEnabled)
+						{
+							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+						}
+						else
+						{
+							DSound.PlaySound(targetSolutionSound3, false, true);
+						}
 						if (Options.mode == Options.Modes.training && currentStage == TrainingStages.solidToneOnFighter1)
 							completedTrainingStage = true;
 					} else
@@ -2444,7 +2465,7 @@ weapon.firingRange);
 						targetSolutionSound.setFrequency(targetSolutionFreqCoefficient*p.degreesDifference);
 						if (Options.hrtfEnabled)
 						{
-							DSound.PlaySound3d(targetSolutionSound, false, true, tx, t.z, tY, flags: SharpDX.X3DAudio.CalculateFlags.Matrix, curveDistanceScaler: Common.getCurveDistanceScaler());
+							DSound.PlaySound3d(targetSolutionSound, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
 						}
 						else
 						{
@@ -2452,7 +2473,16 @@ weapon.firingRange);
 						}
 					} else { //if degree difference==0
 						targetSolutionSound.stop();
-						playSound(targetSolutionSound3, false, true);
+						float tx = t.x;
+						float tY = t.y;
+						if (Options.hrtfEnabled)
+						{
+							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+						}
+						else
+						{
+							DSound.PlaySound(targetSolutionSound3, false, true);
+						}
 						if (Options.mode == Options.Modes.training && currentStage == TrainingStages.solidToneOnFighter1)
 							completedTrainingStage = true;
 					} //if degrees difference=0
