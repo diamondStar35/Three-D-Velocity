@@ -1671,17 +1671,17 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 			switch (Options.soundRange)
 			{
 				case Options.SoundRange.VeryClose:
-					return 1.0f;
+					return 1000.0f;
 				case Options.SoundRange.Close:
-					return 10.0f;
+					return 2000.0f;
 				case Options.SoundRange.Medium:
-					return 50.0f;
+					return 4000.0f;
 				case Options.SoundRange.Far:
-					return 100.0f;
+					return 6000.0f;
 				case Options.SoundRange.VeryFar:
-					return 200.0f;
+					return 10000.0f;
 				default:
-					return 50.0f;
+					return 3000.0f;
 			}
 		}
 	}

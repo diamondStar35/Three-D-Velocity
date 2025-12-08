@@ -257,7 +257,7 @@ namespace TDV
 		{
 			if (isAI)
 			{
-					DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, y, 0);
+				DSound.PlaySound3d(theSound, stopFlag, loopFlag, x, y, 0, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix, Common.getCurveDistanceScaler());
 			}
 			else
 				DSound.PlaySound(theSound, stopFlag, loopFlag);

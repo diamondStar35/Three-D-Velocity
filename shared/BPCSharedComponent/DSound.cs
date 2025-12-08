@@ -57,7 +57,6 @@ namespace BPCSharedComponent.ExtendedAudio
 		[StructLayout(LayoutKind.Sequential)]
 		public struct HrtfApoInit
 		{
-			public IntPtr pVolumeCurve;
 			public IntPtr DistanceDecay;
 			public IntPtr Environment;
 		}
@@ -101,28 +100,7 @@ namespace BPCSharedComponent.ExtendedAudio
 #if HRTF_SUPPORT
 			CoInitializeEx(IntPtr.Zero, 0);
 			HrtfApoInit init = new HrtfApoInit();
-			X3DAUDIO_DISTANCE_CURVE_POINT[] volumePoints = new X3DAUDIO_DISTANCE_CURVE_POINT[]
-			{
-				new X3DAUDIO_DISTANCE_CURVE_POINT { Distance = 0.0f, DspSetting = 1.0f },
-				new X3DAUDIO_DISTANCE_CURVE_POINT { Distance = 1.0f, DspSetting = 1.0f },
-				new X3DAUDIO_DISTANCE_CURVE_POINT { Distance = 1000.0f, DspSetting = 0.0f }
-			};
-			X3DAUDIO_DISTANCE_CURVE volumeCurve = new X3DAUDIO_DISTANCE_CURVE
-			{
-				pPoints = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(X3DAUDIO_DISTANCE_CURVE_POINT)) * volumePoints.Length),
-				NumPoints = volumePoints.Length
-			};
-			IntPtr current = volumeCurve.pPoints;
-			foreach (var point in volumePoints)
-			{
-				Marshal.StructureToPtr(point, current, false);
-				current = (IntPtr)((long)current + Marshal.SizeOf(typeof(X3DAUDIO_DISTANCE_CURVE_POINT)));
-			}
-			init.pVolumeCurve = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(X3DAUDIO_DISTANCE_CURVE)));
-			Marshal.StructureToPtr(volumeCurve, init.pVolumeCurve, false);
 			CreateHrtfApo(ref init, out hrtfApo);
-			Marshal.FreeHGlobal(volumeCurve.pPoints);
-			Marshal.FreeHGlobal(init.pVolumeCurve);
 #endif
 			//get the listener:
 			setListener();
@@ -283,11 +261,11 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="vy">The y component of the velocity  vector.</param>
 		/// <param name="vz">The z component of the velocity vector.</param>
 		/// <param name="flags">The 3D flags to calculate. The default will calculate volume and doppler shift. This parameter is useful if it is not desirable for XAudio2 to calculate doppler on sounds that modify their own frequencies as an example; in this case, the flags should omit doppler.</param>
-		public static void PlaySound3d(ExtendedAudioBuffer sound, bool stop, bool loop, float x, float y, float z, float vx=0, float vy=0, float vz=0, CalculateFlags flags = CalculateFlags.Matrix | CalculateFlags.Doppler, float curveDistanceScaler = 1.0f)
+		public static void PlaySound3d(ExtendedAudioBuffer sound, bool stop, bool loop, float x, float y, float z, float vx=0, float vy=0, float vz=0, CalculateFlags flags = CalculateFlags.Matrix | CalculateFlags.Doppler | CalculateFlags.LpfDirect | CalculateFlags.LpfReverb, float curveDistanceScaler = 1.0f)
 		{
 			Emitter emitter = new Emitter {
 				ChannelCount = 1,
-				CurveDistanceScaler = 1.0f,
+				CurveDistanceScaler = curveDistanceScaler,
 				OrientFront = new Vector3(0, 0, 1),
 				OrientTop = new Vector3(0, 1, 0),
 				Position = new Vector3(x, y, z),
