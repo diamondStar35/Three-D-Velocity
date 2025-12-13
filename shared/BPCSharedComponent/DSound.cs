@@ -7,13 +7,17 @@
 */
 using SharpDX;
 using SharpDX.Multimedia;
-using SharpDX.X3DAudio;
 using SharpDX.XAudio2;
+using SharpDX.X3DAudio;
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using OpenALSoft.Net.Core;
+using AlVector3 = OpenALSoft.Net.Core.Vector3;
+using DxVector3 = SharpDX.Vector3;
+using System.Linq;
 
 namespace BPCSharedComponent.ExtendedAudio
 {
@@ -41,11 +45,9 @@ namespace BPCSharedComponent.ExtendedAudio
 		public static string SFileName;
 		private static XAudio2 mainSoundDevice, musicDevice, alwaysLoudDevice, cutScenesDevice;
 		private static MasteringVoice mainMasteringVoice, musicMasteringVoice, alwaysLoudMasteringVoice, cutScenesMasteringVoice;
-		private static X3DAudio x3DAudio;
-		private static Listener listener;
-#if HRTF_SUPPORT
-		private static IXAPO hrtfApo;
-#endif
+		private static AudioDevice alDevice;
+		private static AudioContext alContext;
+		public static bool IsHrtfActive => alContext?.IsHrtfEnabled ?? false;
 		//used to hold sounds path
 		public static string SoundPath;
 		//used to hold narratives
@@ -53,30 +55,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		//used to hold numbers
 		public static string NumPath;
 
-#if HRTF_SUPPORT
-		[StructLayout(LayoutKind.Sequential)]
-		public struct HrtfApoInit
-		{
-			public IntPtr DistanceDecay;
-			public IntPtr Environment;
-		}
 
-		[ComImport]
-		[Guid("a9533d3c-c3b3-446a-b286-1e66b2344781")]
-		[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-		public interface IXAPO
-		{
-		}
-
-		[DllImport("HrtfApo.dll", CallingConvention = CallingConvention.StdCall)]
-		public static extern int CreateHrtfApo(
-			[In] ref HrtfApoInit init,
-			[Out, MarshalAs(UnmanagedType.IUnknown)] out IXAPO xApo
-		);
-
-		[DllImport("ole32.dll")]
-		public static extern int CoInitializeEx(IntPtr pvReserved, int dwCoInit);
-#endif
 
 		/// <summary>
 		/// Initializes the sound library for playback.
@@ -90,18 +69,29 @@ namespace BPCSharedComponent.ExtendedAudio
 			NumPath = NSoundPath + "\\ns";
 			mainSoundDevice = new XAudio2();
 			mainMasteringVoice = new MasteringVoice(mainSoundDevice);
-			x3DAudio = new X3DAudio((Speakers)mainMasteringVoice.ChannelMask);
 			musicDevice = new XAudio2();
 			musicMasteringVoice = new MasteringVoice(musicDevice);
 			alwaysLoudDevice = new XAudio2();
 			alwaysLoudMasteringVoice = new MasteringVoice(alwaysLoudDevice);
 			cutScenesDevice = new XAudio2();
 			cutScenesMasteringVoice = new MasteringVoice(cutScenesDevice);
-#if HRTF_SUPPORT
-			CoInitializeEx(IntPtr.Zero, 0);
-			HrtfApoInit init = new HrtfApoInit();
-			CreateHrtfApo(ref init, out hrtfApo);
-#endif
+
+			var devices = AudioDevice.EnumerateDevices();
+			var hrtfDevice = devices.FirstOrDefault(d => new AudioDevice(d).IsHrtfSupported);
+			if (hrtfDevice != null)
+			{
+				alDevice = new AudioDevice(hrtfDevice);
+				var attributes = new AudioContextAttributes().Hrtf(true).ToArray();
+				alContext = new AudioContext(alDevice, attributes);
+			}
+			else
+			{
+				alDevice = new AudioDevice();
+				alContext = new AudioContext(alDevice);
+			}
+
+			alContext.MakeCurrent();
+			AudioContext.DistanceModel = AudioDistanceModel.InverseDistanceClamped;
 			//get the listener:
 			setListener();
 		}
@@ -120,25 +110,11 @@ namespace BPCSharedComponent.ExtendedAudio
 			}
 			SoundStream stream = new SoundStream(File.OpenRead(FileName));
 			WaveFormat format = stream.Format; // So we don't lose reference to it when we close the stream.
-			AudioBuffer buffer = new AudioBuffer { Stream = stream.ToDataStream(), AudioBytes = (int)stream.Length, Flags = SharpDX.XAudio2.BufferFlags.EndOfStream };
+			SharpDX.XAudio2.AudioBuffer buffer = new SharpDX.XAudio2.AudioBuffer { Stream = stream.ToDataStream(), AudioBytes = (int)stream.Length, Flags = SharpDX.XAudio2.BufferFlags.EndOfStream };
 			// We can now safely close the stream.
 			stream.Close();
-#if HRTF_SUPPORT
-			if (hrtfApo != null && TDV.Options.hrtfEnabled)
-			{
-				EffectDescriptor effectDescriptor = new EffectDescriptor(hrtfApo);
-				SourceVoice sv = new SourceVoice(device, format, VoiceFlags.None, 5.0f, notificationsSupport, new EffectDescriptor[] { effectDescriptor });
-				return new ExtendedAudioBuffer(buffer, sv);
-			}
-			else
-			{
-				SourceVoice sv = new SourceVoice(device, format, VoiceFlags.None, 5.0f, notificationsSupport);
-				return new ExtendedAudioBuffer(buffer, sv);
-			}
-#else
 			SourceVoice sv = new SourceVoice(device, format, VoiceFlags.None, 5.0f, notificationsSupport);
-			return new ExtendedAudioBuffer(buffer, sv);
-#endif
+			return new ExtendedAudioBuffer(buffer, sv, format);
 		}
 
 		/// <summary>
@@ -180,9 +156,9 @@ namespace BPCSharedComponent.ExtendedAudio
 			SharpDX.DataStream dataStream = new SharpDX.DataStream(ms.ToArray().Length, true, true);
 			dataStream.Write(ms.ToArray(), 0, ms.ToArray().Length);
 			dataStream.Position = 0; // Reset position for reading
-			AudioBuffer buffer = new AudioBuffer { Stream = dataStream, AudioBytes = (int)dataStream.Length, Flags = SharpDX.XAudio2.BufferFlags.EndOfStream };
+			SharpDX.XAudio2.AudioBuffer buffer = new SharpDX.XAudio2.AudioBuffer { Stream = dataStream, AudioBytes = (int)dataStream.Length, Flags = SharpDX.XAudio2.BufferFlags.EndOfStream };
 			SourceVoice sv = new SourceVoice(mainSoundDevice, format, VoiceFlags.None, 5.0f, false);
-			return new ExtendedAudioBuffer(buffer, sv);
+			return new ExtendedAudioBuffer(buffer, sv, format);
 		}
 
 		/// <summary>
@@ -190,23 +166,21 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// </summary>
 		public static void setListener()
 		{
-			listener = new Listener
-			{
-				OrientFront = new Vector3(0, 0, 1),
-				OrientTop = new Vector3(0, 1, 0),
-				Position = new Vector3(0, 0, 0),
-				Velocity = new Vector3(0, 0, 0)
-			};
+			AudioListener.Position = new AlVector3(0, 0, 0);
+			AudioListener.Orientation = (new AlVector3(0, 0, -1), new AlVector3(0, 1, 0));
+			AudioListener.Velocity = new AlVector3(0, 0, 0);
 		}
 
-		public static Vector3 getListenerPosition()
+		public static DxVector3 getListenerPosition()
 		{
-			return listener.Position;
+			var pos = AudioListener.Position;
+			return new DxVector3(pos.X, pos.Y, pos.Z);
 		}
 
-		public static Vector3 getListenerOrientFront()
+		public static DxVector3 getListenerOrientFront()
 		{
-			return listener.OrientFront;
+			var (at, _) = AudioListener.Orientation;
+			return new DxVector3(at.X, at.Y, at.Z);
 		}
 
 		/// <summary>
@@ -220,10 +194,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="z2"></param>
 		public static void setOrientation(float x1, float y1, float z1, float x2=0, float y2=1, float z2=0)
 		{
-			Vector3 front = new Vector3(x1, y1, z1);
-			Vector3 top = new Vector3(x2, y2, z2);
-			listener.OrientFront = front;
-			listener.OrientTop = top;
+			AudioListener.Orientation = (new AlVector3(x1, y1, z1), new AlVector3(x2, y2, z2));
 		}
 
 		/// <summary>
@@ -234,7 +205,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="z">The z component of the velocity vector.</param>
 		public static void setVelocity(float x, float y, float z)
 		{
-			listener.Velocity = new Vector3(x, y, z);
+			AudioListener.Velocity = new AlVector3(x, y, z);
 		}
 
 		/// <summary>
@@ -245,6 +216,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="loop">Whether or not to loop the sound.</param>
 		public static void PlaySound(ExtendedAudioBuffer sound, bool stop, bool loop)
 		{
+			sound.Is3D = false;
 			sound.play(stop, loop);
 		}
 
@@ -255,25 +227,36 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="stop">If true, will stop the sound and return its position to 0 before playing it. Passing false will have the effect of resuming the sound from the last position it was stopped at.</param>
 		/// <param name="loop">Whether or not to loop the sound.</param>
 		/// <param name="x">The x coordinate of the source.</param>
-		/// <param name="y">The y coordinate of the source.</param>
-		/// <param name="z">The z coordinate of the source.</param>
+		/// <param name="y">The y coordinate of the source (in-game Z, or depth).</param>
+		/// <param name="z">The z coordinate of the source (in-game Y, or height).</param>
 		/// <param name="vx">The x component of the velocity vector.</param>
-		/// <param name="vy">The y component of the velocity  vector.</param>
-		/// <param name="vz">The z component of the velocity vector.</param>
-		/// <param name="flags">The 3D flags to calculate. The default will calculate volume and doppler shift. This parameter is useful if it is not desirable for XAudio2 to calculate doppler on sounds that modify their own frequencies as an example; in this case, the flags should omit doppler.</param>
+		/// <param name="vy">The y component of the velocity  vector (in-game Z, or depth).</param>
+		/// <param name="vz">The z component of the velocity vector (in-game Y, or height).</param>
+		/// <param name="flags">Not used by the OpenAL implementation.</param>
 		public static void PlaySound3d(ExtendedAudioBuffer sound, bool stop, bool loop, float x, float y, float z, float vx=0, float vy=0, float vz=0, CalculateFlags flags = CalculateFlags.Matrix | CalculateFlags.Doppler | CalculateFlags.LpfDirect | CalculateFlags.LpfReverb, float curveDistanceScaler = 1.0f)
 		{
-			Emitter emitter = new Emitter {
-				ChannelCount = 1,
-				CurveDistanceScaler = curveDistanceScaler,
-				OrientFront = new Vector3(0, 0, 1),
-				OrientTop = new Vector3(0, 1, 0),
-				Position = new Vector3(x, y, z),
-				Velocity = new Vector3(vx, vy, vz)
-			};
-			sound.play(stop, loop);
-			DspSettings dspSettings = x3DAudio.Calculate(listener, emitter, flags, sound.getVoiceDetails().InputChannelCount, mainMasteringVoice.VoiceDetails.InputChannelCount);
-			sound.apply3D(dspSettings, sound.getVoiceDetails().InputChannelCount, mainMasteringVoice.VoiceDetails.InputChannelCount, flags);
+			sound.Is3D = true;
+			sound.ensureAlObjects();
+
+			if (stop)
+			{
+				sound.stop();
+			}
+
+			// Game uses (X, Z, Y), OpenAL uses (X, Y, -Z)
+			sound.AlSource.Position = new AlVector3(x, z, -y);
+			sound.AlSource.Velocity = new AlVector3(vx, vz, -vy);
+			
+			sound.AlSource.ReferenceDistance = 1.0f * curveDistanceScaler;
+			sound.AlSource.MaxDistance = 1000.0f * curveDistanceScaler;
+			sound.AlSource.RolloffFactor = 1.0f;
+			sound.AlSource.Looping = loop;
+			sound.AlSource.Spatialize = SpatializationMode.On;
+
+			if (sound.AlSource.State != AudioSourceState.Playing)
+			{
+				sound.AlSource.Play();
+			}
 		}
 
 
@@ -285,7 +268,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="z">The z coordinate of the listener.</param>
 		public static void SetCoordinates(float x, float y, float z)
 		{
-			listener.Position = new Vector3(x, y, z);
+			AudioListener.Position = new AlVector3(x, y, z);
 		}
 
 		/// <summary>
@@ -371,6 +354,8 @@ namespace BPCSharedComponent.ExtendedAudio
 			musicDevice.Dispose();
 			mainMasteringVoice.Dispose();
 			mainSoundDevice.Dispose();
+			alContext?.Dispose();
+			alDevice?.Dispose();
 		}
 
 		/// <summary>

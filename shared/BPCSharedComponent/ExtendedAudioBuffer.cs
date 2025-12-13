@@ -9,11 +9,16 @@ using System;
 using SharpDX.XAudio2;
 using SharpDX.X3DAudio;
 using System.Threading;
+using OpenALSoft.Net.Core;
+using AudioFormat = OpenALSoft.Net.Core.AudioFormat;
 
 namespace BPCSharedComponent.ExtendedAudio
 {
 	public class ExtendedAudioBuffer: IDisposable
 	{
+		public bool Is3D;
+		public AudioSource AlSource;
+		public OpenALSoft.Net.Core.AudioBuffer AlBuffer;
 		/// <summary>
 		/// Represents the state of our buffer. We have to implement our own states since there's no way to query
 		/// the SourceVoice and ask it about its state without attaching to its handles.
@@ -23,13 +28,14 @@ namespace BPCSharedComponent.ExtendedAudio
 			playing,
 			stopped
 		}
-		private AudioBuffer buffer;
+		private SharpDX.XAudio2.AudioBuffer buffer;
 		private SourceVoice voice;
 		private bool isInitializingPlayback; // If a consumer happens to query the state of this buffer while we're loading data, they might get State.stopped which is incorrect. So we'll use this flag to force this buffer to send State.playing.
 		private bool hasNeverPlayed;
 		private bool isStopped;
 		private bool looping;
 		private Action onEnd;
+		private SharpDX.Multimedia.WaveFormat format;
 
 		/// <summary>
 		///  The state of the audio. It will begin in the stopped state.
@@ -38,6 +44,15 @@ namespace BPCSharedComponent.ExtendedAudio
 		{
 			get
 			{
+				if (Is3D)
+				{
+					if (AlSource != null && AlSource.State == AudioSourceState.Playing)
+					{
+						return State.playing;
+					}
+					return State.stopped;
+				}
+
 				if (isInitializingPlayback)
 					return State.playing;
 				else {
@@ -60,10 +75,11 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// </summary>
 		/// <param name="buffer">The AudioBuffer with which to fill the SourceVoice. The SourceVoice can either be filled beforehand or filled by calling play(true, false).</param>
 		/// <param name="voice">The SourceVoice that represents the pipeline of the supplied Audio Buffer. In order to use onEnd, this voice must be instantiated with delegate support enabled.</param>
-		public ExtendedAudioBuffer(AudioBuffer buffer, SourceVoice voice)
+		public ExtendedAudioBuffer(SharpDX.XAudio2.AudioBuffer buffer, SourceVoice voice, SharpDX.Multimedia.WaveFormat format)
 		{
 			this.buffer = buffer;
 			this.voice = voice;
+			this.format = format;
 			hasNeverPlayed = true;
 			// Will only fire if callback support is enabled.
 			voice.StreamEnd += () =>
@@ -89,10 +105,15 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="loop">Whether or not to loop the sound.</param>
 		public void play(bool stop, bool loop)
 		{
+			if (Is3D)
+			{
+				// Playback is handled by PlaySound3d for 3D sounds.
+				return;
+			}
 			this.looping = loop;
 			isInitializingPlayback = true;
 			if (loop) {
-				buffer.LoopCount = AudioBuffer.LoopInfinite;
+				buffer.LoopCount = SharpDX.XAudio2.AudioBuffer.LoopInfinite;
 			}
 			// We'll start the buffer from the beginning if we've never played this buffer before so that the sound can be loaded.
 			// Otherwise, the sound might start from a random position in the buffer.
@@ -113,24 +134,18 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// </summary>
 		public void stop()
 		{
-			voice.Stop();
-			isStopped = true;
-		}
-
-		/// <summary>
-		/// Applies 3-D settings represented by the supplied settings object to the sound.
-		/// </summary>
-		/// <param name="settings">The DspSettings object that represents changes that should be made to this sound.</param>
-		/// <param name="sourceChannels">The source channel count.</param>
-		/// <param name="destinationChannels">The destination channel count.</param>
-		/// <param name="flags">The 3D flags to calculate. The default will calculate volume and doppler shift. This parameter is useful if it is not desirable for XAudio2 to calculate doppler on sounds that modify their own frequencies as an example; in this case, the flags should omit doppler.</param>
-		public void apply3D(DspSettings settings, int sourceChannels, int destinationChannels, CalculateFlags flags)
-		{
-			voice.SetOutputMatrix(sourceChannels, destinationChannels, settings.MatrixCoefficients);
-			if ((flags & CalculateFlags.Doppler) == CalculateFlags.Doppler) {
-				voice.GetFrequencyRatio(out float freq);
-				voice.SetFrequencyRatio(settings.DopplerFactor * freq);
+			if (Is3D)
+			{
+				if (AlSource != null && AlSource.State == AudioSourceState.Playing)
+				{
+					AlSource.Stop();
+				}
 			}
+			else
+			{
+				voice.Stop();
+			}
+			isStopped = true;
 		}
 
 		/// <summary>
@@ -191,6 +206,40 @@ namespace BPCSharedComponent.ExtendedAudio
 			voice.SetOutputMatrix(sourceChannels, destinationChannels, levelMatrixRef);
 		}
 
+		public void ensureAlObjects()
+		{
+			if (AlBuffer == null)
+			{
+				AlBuffer = new OpenALSoft.Net.Core.AudioBuffer();
+				buffer.Stream.Position = 0;
+				byte[] data = new byte[buffer.AudioBytes];
+				buffer.Stream.Read(data, 0, data.Length);
+
+				var alFormat = GetAlFormat(this.format.Channels, this.format.BitsPerSample);
+				AlBuffer.BufferData(alFormat, data, this.format.SampleRate);
+			}
+			if (AlSource == null)
+			{
+				AlSource = new AudioSource();
+				AlSource.Buffer = AlBuffer;
+			}
+		}
+
+		private int GetAlFormat(int channels, int bitsPerSample)
+		{
+			if (channels == 1)
+			{
+				if (bitsPerSample == 8) return (int)AudioFormat.Mono8;
+				if (bitsPerSample == 16) return (int)AudioFormat.Mono16;
+			}
+			else if (channels == 2)
+			{
+				if (bitsPerSample == 8) return (int)AudioFormat.Stereo8;
+				if (bitsPerSample == 16) return (int)AudioFormat.Stereo16;
+			}
+			throw new NotSupportedException("Unsupported audio format for OpenAL.");
+		}
+
 		#region IDisposable Support
 		private bool disposedValue = false; // To detect redundant calls
 
@@ -198,6 +247,11 @@ namespace BPCSharedComponent.ExtendedAudio
 		{
 			if (!disposedValue) {
 				if (disposing) {
+					if (Is3D)
+					{
+						AlSource?.Dispose();
+						AlBuffer?.Dispose();
+					}
 					voice.Dispose();
 					buffer.Stream.Dispose();
 				}
