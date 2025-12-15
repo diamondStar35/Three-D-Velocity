@@ -23,7 +23,6 @@
     </UpgradeBackupLocation>
     <OldToolsVersion>3.5</OldToolsVersion>
     <TargetFrameworkProfile />
-    <DefineConstants>HRTF_SUPPORT</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <OutputPath>bin\Debug\</OutputPath>
@@ -201,6 +200,12 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\open_al_net\OpenALSoft.Net\OpenALSoft.Net.csproj">
+      <Project>{22F42081-C29E-4EA2-B3F0-50EDF63F5D69}</Project>
+      <Name>OpenALSoft.Net</Name>
+    </ProjectReference>
   </ItemGroup>
   <ProjectExtensions>
     <VisualStudio>

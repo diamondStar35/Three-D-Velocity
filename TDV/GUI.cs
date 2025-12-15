@@ -81,6 +81,10 @@ namespace TDV
 			Common.mainGUI = this;
 			Common.guiHandle = this.Handle;
 			DSound.initialize(Addendums.File.commonAppPath);
+			if (Options.hrtfEnabled && !DSound.IsHrtfActive)
+			{
+				SapiSpeech.speak("HRTF audio was enabled, but could not be initialized.", SapiSpeech.SpeakFlag.none);
+			}
 			DXInput.DInputInit(this.Handle);
 			this.Deactivate += new EventHandler(GUI_Deactivate);
 			this.Activated += new EventHandler(GUI_Activated);
