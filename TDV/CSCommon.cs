@@ -79,7 +79,8 @@ namespace TDV
 		cmd_resp = 37,
 		cmd_test = 38,
 		cmd_addMember = 39,
-		cmd_removeMember = 40;
+		cmd_removeMember = 40,
+		cmd_updateBotSettings = 41;
 		private static int m_secondsTimeout = 5;
 		public static int secondsTimeout { get { return m_secondsTimeout; } }
 

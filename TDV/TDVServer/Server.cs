@@ -170,6 +170,7 @@ namespace TDVServer
     {
         public string DayMsg { get; set; } = "";
         public int SecondsTimeout { get; set; } = 5;
+        public bool BotsAttackBots { get; set; } = true;
     }
 
 	public class Player
@@ -345,6 +346,17 @@ namespace TDVServer
 		private static String dayMsg = null;
 		private static int[] ports = null;
 		private static bool modifiedClientList;
+		private static bool m_botsAttackBots = true;
+		public static bool BotsAttackBots
+		{
+			get { return m_botsAttackBots; }
+			set
+			{
+				m_botsAttackBots = value;
+				broadcastBotSettings();
+			}
+		}
+
 		private static StreamWriter theFile, theChatFile;
 		private static Dictionary<String, Player> clientList;
 		private static Thread checkThread;
@@ -512,6 +524,7 @@ namespace TDVServer
 				if (!dayMsg.Equals(""))
 					responses |= LoginMessages.messageOfTheDay;
 				sendConnectResponse(c, responses, serverTag, dayMsg);
+				CSCommon.sendData(c, CSCommon.buildCMDString(CSCommon.cmd_updateBotSettings, BotsAttackBots));
 				lock (returnLock) {
 					Player p = null;
 					returns.Add(p = new Player(serverTag, callSign, admin, c));
@@ -1115,7 +1128,7 @@ namespace TDVServer
 						crash = true;
 						break;
 					case "options":
-						int resp = menu("Select an option:", "Set server timeout");
+						int resp = menu("Select an option:", "Set server timeout", "Toggle Bot Behavior (" + (BotsAttackBots ? "Attack Bots" : "Attack Players Only") + ")");
 						switch (resp) {
 							case 1:
 								System.Console.WriteLine("Enter the timeout in seconds. Press ENTER for " + CSCommon.secondsTimeout + " seconds.");
@@ -1123,6 +1136,10 @@ namespace TDVServer
 								if (sec.Equals(""))
 									break;
 								CSCommon.initialize(Convert.ToInt32(sec));
+								break;
+							case 2:
+								BotsAttackBots = !BotsAttackBots;
+								System.Console.WriteLine("Bots will now " + (BotsAttackBots ? "attack other bots." : "only attack players."));
 								break;
 						}
 						saveSettings();
@@ -1198,7 +1215,8 @@ namespace TDVServer
             var settings = new ServerSettings
             {
                 DayMsg = dayMsg,
-                SecondsTimeout = CSCommon.secondsTimeout
+                SecondsTimeout = CSCommon.secondsTimeout,
+                BotsAttackBots = BotsAttackBots
             };
             string jsonString = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText("settings.json", jsonString);
@@ -1221,6 +1239,7 @@ namespace TDVServer
                 {
                     dayMsg = settings.DayMsg;
                     CSCommon.initialize(settings.SecondsTimeout);
+                    BotsAttackBots = settings.BotsAttackBots;
                     output(LoggingLevels.info, "Settings loaded from settings.json.");
                 }
             }
@@ -1230,6 +1249,12 @@ namespace TDVServer
                 // Optionally re-save defaults if loading fails to fix potentially corrupt file
                 saveSettings();
             }
+		}
+
+		private static void broadcastBotSettings()
+		{
+			MemoryStream ms = CSCommon.buildCMDString(CSCommon.cmd_updateBotSettings, BotsAttackBots);
+			propogate(ms, null);
 		}
 
 		/// <summary>

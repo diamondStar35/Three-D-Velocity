@@ -214,13 +214,13 @@ namespace TDV
 		//the Exclude array must be supplied and holds all keys which should not be programmed by the user (for instance, when using a joystick, it is not fit
 		// to program the ascend and descend commands.)
 		//Should there be no exclusion keys, a value of -1 should be supplied or the method call will fail.
-		public static string[] getKeyStrings(params Aircraft.Action[] exclude)
+		public static string[] getKeyStrings(bool fromJS, params Aircraft.Action[] exclude)
 		{
 			string[] strArray = new string[keysData.Length];
 			if (exclude == null)
 			{
 				for (int i = 0; i < keysData.Length; i++)
-					strArray[i] = getStringValue(i + 1);
+					strArray[i] = getStringValue(i + 1, fromJS);
 				return strArray;
 			}
 
@@ -232,10 +232,15 @@ namespace TDV
 				}
 				else
 				{
-					strArray[i] = getStringValue(i + 1);
+					strArray[i] = getStringValue(i + 1, fromJS);
 				}
 			}
 			return (strArray);
+		}
+
+		public static string[] getKeyStrings(params Aircraft.Action[] exclude)
+		{
+			return getKeyStrings(false, exclude);
 		}
 
 		public static int getNumberOfKeys()
@@ -244,7 +249,7 @@ namespace TDV
 		}
 
 		//Returns the string representation of the parameter a.
-		private static string getStringValue(long a)
+		private static string getStringValue(long a, bool fromJS)
 		{
 			if (a == -1)
 				return "";
@@ -285,15 +290,22 @@ namespace TDV
                         break;
                 }
 
-                long[] keyData = getKey(action);
+                long[] keyData = getKey(action, fromJS);
                 if (keyData != null)
                 {
                     string keyString = "";
-                    if (keyData[0] != -1)
+                    if (fromJS)
                     {
-                        keyString += ((Key)keyData[0]).ToString() + " + ";
+                        keyString = "Button " + (keyData[1] + 1);
                     }
-                    keyString += ((Key)keyData[1]).ToString();
+                    else
+                    {
+                        if (keyData[0] != -1)
+                        {
+                            keyString += ((Key)keyData[0]).ToString() + " + ";
+                        }
+                        keyString += ((Key)keyData[1]).ToString();
+                    }
                     readableName += ": " + keyString;
                 }
                 return readableName;

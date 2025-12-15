@@ -29,7 +29,9 @@ namespace TDV
 		}
 		public BattleShip()
 			: this(0f, 0f, new Instructions())
-		{ }
+		{
+			instructions.addNode(false, 0, 0);
+		}
 
 		public override void move()
 		{

@@ -1935,6 +1935,13 @@ namespace TDV
 					return false;
 				id = vArray[index].id;
 			} else { //if AI
+				if (!Options.BotsAttackBots)
+				{
+					// Filter out bots
+					vArray.RemoveAll(p => p.role == OnlineRole.bot);
+				}
+				if (vArray.Count == 0) return false;
+
 				int selectedID = 0;
 				do {
 					id = vArray[selectedID = Common.getRandom(vArray.Count - 1)].id;
@@ -4016,7 +4023,13 @@ weapon.firingRange);
 							SapiSpeech.speak("Guidance system disabled.");
 						break;
 					case Action.addBot:
-						Client.addBot();
+						Interaction.muteAllObjects(false);
+						pauseInput();
+						string type = Common.mainGUI.selectBotType();
+						resumeInput();
+						if (type != null)
+							Client.addBot(type);
+						Interaction.unmuteAllObjects();
 						break;
 
 					case Action.removeBot:

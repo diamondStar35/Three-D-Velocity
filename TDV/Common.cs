@@ -1121,12 +1121,15 @@ Answering 'Yes' will also delete your joystick calibration data if you have your
 
 		public static void fadeMusic(bool stop)
 		{
+			if (music == null) return;
 			float v;
-			while ((v = DSound.getVolumeOfMusic()) > ((stop) ? 0.0f : 0.25f)) { //don't completely fade if not stopping
-				DSound.setVolumeOfMusic(v - volumeFadeValue);
-				Thread.Sleep(100);
-			}
-			if (stop)
+			try {
+				while ((v = DSound.getVolumeOfMusic()) > ((stop) ? 0.0f : 0.25f)) { //don't completely fade if not stopping
+					DSound.setVolumeOfMusic(v - volumeFadeValue);
+					Thread.Sleep(100);
+				}
+			} catch (Exception) {}
+			if (stop && music != null)
 				music.stopOgg();
 		}
 

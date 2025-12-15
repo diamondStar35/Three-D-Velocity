@@ -229,6 +229,7 @@
     <Compile Include="Addendums.cs" />
     <Compile Include="AirBase.cs" />
     <Compile Include="Aircraft.cs" />
+    <Compile Include="AceAircraft.cs" />
     <Compile Include="AircraftCarrier.cs" />
     <Compile Include="Area.cs" />
     <Compile Include="AssemblyInfo.cs" />
@@ -241,10 +242,14 @@
     <Compile Include="Common.cs" />
     <Compile Include="CSCommon.cs" />
     <Compile Include="Desk.cs" />
+    <Compile Include="Destroyer.cs" />
+    <Compile Include="Drone.cs" />
+    <Compile Include="EliteFighter.cs" />
     <Compile Include="ExtraItem.cs" />
     <Compile Include="FightObject.cs" />
     <Compile Include="FightObjectFeeler.cs" />
     <Compile Include="Furniture.cs" />
+    <Compile Include="Interceptor.cs" />
     <Compile Include="JuliusAircraft.cs" />
     <Compile Include="GuardTower.cs" />
     <Compile Include="GUI.cs">

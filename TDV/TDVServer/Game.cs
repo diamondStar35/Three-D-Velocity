@@ -304,7 +304,8 @@ namespace TDVServer
 
 							case CSCommon.cmd_createBot:
 								//The player who creates the bot will spawn a thread to control them.
-								createBot(tag, ObjectType.aircraft);
+								string botType = rcvData.ReadString();
+								createBot(tag, ObjectType.aircraft, botType);
 								break;
 
 							case CSCommon.cmd_removeBot:
@@ -660,141 +661,131 @@ namespace TDVServer
 			return amount;
 		}
 
-		/// <summary>
-		/// Gets an id for a bot.
-		/// </summary>
-		/// <returns>The id to assign to a bot.</returns>
-		private String getBotID()
-		{
-			Random r = new Random();
-			bool validID = false;
-			String theID = null;
-			while (!validID) {
-				char[] chars = new char[r.Next(1, 10)];
-				int nextIndex = 0;
-				do {
-					//If set, we will select a number 0-9,
-					//else a letter
-					bool selectNumber =
-						r.Next(1, 3) == 2;
-					if (selectNumber)
-						chars[nextIndex] = (char)r.Next('0', '9' + 1);
-					else
-						chars[nextIndex] = (char)r.Next('A', 'Z' + 1);
-					nextIndex++;
-				} while (nextIndex < chars.Length);
-				theID = new String(chars);
-				validID = !botIDExists(theID);
-			} //while
-			return theID;
-		}
-
-		/// <summary>
-		/// Pushes the bot to a new player, in the event the previous host was disconnected. The bots list will always be modified after this method runs. Call this method after removing the player.
-		/// </summary>
-		/// <param name="index">The position in bots to remove.</param>
-		private void pushBot(int index)
-		{
-			String botID = bots[index].id;
-			String botName = bots[index].name;
-			ObjectType objectType = bots[index].objectType;
-			if (clientList.Count == 0) {
-				bots[index].creator = null;
-				return;
-			}
-
-			String[] ids = clientList.Keys.ToArray();
-			Random r = new Random();
-			String pid = null; //ID of new host player for bot
-			CSCommon.sendData(clientList[pid = ids[r.Next(0, ids.Length)]].client,
-				CSCommon.buildCMDString(CSCommon.cmd_createBot, botID, botName, (byte)objectType));
-			bots[index].creator = pid;
-		}
-
-		/// <summary>
-		/// If a player is disconnected who is hosting bots, this method reassigns those bots to a new host.
-		/// </summary>
-		/// <param name="id">The id of the player who was disconnected.</param>
-		private void clearBotsFromPlayer(String id)
-		{
-			output(LoggingLevels.debug, "Clearing bots.");
-			bool clear = true;
-			do {
-				clear = true;
-				for (int i = 0; i < bots.Count; i++) {
-					if (id.Equals(bots[i].creator)) {
-						pushBot(i);
-						clear = false;
-						break;
-					} //if found player with bot
-				} //for
-			} while (!clear);
-			output(LoggingLevels.debug, "Ok");
-		}
-
-		/// <summary>
-		/// Checks to see if the given bot id exists already.
-		/// </summary>
-		/// <param name="id">The bot id to check</param>
-		/// <returns>True if the id exists, false otherwise.</returns>
-		private bool botIDExists(String id)
-		{
-			return getBot(id) > -1;
-		}
-
-		private bool isBotID(String id)
-		{
-			return id.StartsWith("B-");
-		}
-
-		/// <summary>
-		/// Gets the index at which the given bot id resides.
-		/// </summary>
-		/// <param name="id">The bot id</param>
-		/// <returns>The index in the bots array, or -1 if not found</returns>
-		private int getBot(String id)
-		{
-			for (int i = 0; i < bots.Count; i++) {
-				if (bots[i].id.Equals(id))
-					return i;
-			}
-			return -1;
-		}
-
-		/// <summary>
-		/// Drops this bot from the server.
-		/// </summary>
-		/// <param name="index">The index of the bot to remove</param>
-		/// <returns>The id of the bot just removed</returns>
-		private String removeBot(int index)
-		{
-			if (bots.Count == 0 || index >= bots.Count)
-				return null;
-			String id = bots[index].id;
-			bots.RemoveAt(index);
-			return id;
-		}
-
-		/// <summary>
-		/// Creates a bot.
-		/// </summary>
-		/// <param name="creator">The tag of the player that will hold the bot's data initially.</param>
-		/// <param name="objectType">The type of the bot.</param>
-		private void createBot(String creator, ObjectType objectType)
-		{
-			String id = getBotID();
-			String botName = "Bot " + id;
-			String botId = "B-" + id;
-			CSCommon.sendData(clientList[creator].client, CSCommon.buildCMDString(CSCommon.cmd_createBot, botId, botName, (byte)objectType));
-			//Other players will just see another spawn.
-			propogate(CSCommon.buildCMDString(CSCommon.cmd_distributeServerTag, botId, botName, (byte)objectType, (short)0), clientList[creator].client);
-			if (objectType == ObjectType.aircraft)
-				sendMessage(botName + " has been created.", null);
-			bots.Add(new BotInfo(creator, botId, botName, objectType));
-			bots.Sort();
-			output(LoggingLevels.debug, "Bot " + botName + " created");
-		}
-
+		        /// <summary>
+		        /// Gets an id for a bot.
+		        /// </summary>
+		        /// <returns>An unused ID</returns>
+		        private String getBotID()
+		        {
+		            Random r = new Random();
+		            bool validID = false;
+		            String theID = null;
+		            while (!validID) {
+		                char[] chars = new char[r.Next(4, 6)]; // 4-5 digits
+		                for(int i=0; i<chars.Length; i++)
+		                    chars[i] = (char)r.Next('0', '9' + 1);
+		                
+		                theID = new String(chars);
+		                validID = !botIDExists(theID);
+		            } //while
+		            return theID;
+		        }
+		
+		        /// <summary>
+		        /// Pushes the bot to a new player, in the event the previous host was disconnected. The bots list will always be modified after this method runs. Call this method after removing the player.
+		        /// </summary>
+		        /// <param name="index">The position in bots to remove.</param>
+		        private void pushBot(int index)
+		        {
+		            String botID = bots[index].id;
+		            String botName = bots[index].name;
+		            ObjectType objectType = bots[index].objectType;
+		            if (clientList.Count == 0) {
+		                bots[index].creator = null;
+		                return;
+		            }
+		
+		            String[] ids = clientList.Keys.ToArray();
+		            Random r = new Random();
+		            String pid = null; //ID of new host player for bot
+		            CSCommon.sendData(clientList[pid = ids[r.Next(0, ids.Length)]].client,
+		                CSCommon.buildCMDString(CSCommon.cmd_createBot, botID, botName, (byte)objectType));
+		            bots[index].creator = pid;
+		        }
+		
+		        /// <summary>
+		        /// If a player is disconnected who is hosting bots, this method reassigns those bots to a new host.
+		        /// </summary>
+		        /// <param name="id">The id of the player who was disconnected.</param>
+		        private void clearBotsFromPlayer(String id)
+		        {
+		            output(LoggingLevels.debug, "Clearing bots.");
+		            bool clear = true;
+		            do {
+		                clear = true;
+		                for (int i = 0; i < bots.Count; i++) {
+		                    if (id.Equals(bots[i].creator)) {
+		                        pushBot(i);
+		                        clear = false;
+		                        break;
+		                    } //if found player with bot
+		                } //for
+		            } while (!clear);
+		            output(LoggingLevels.debug, "Ok");
+		        }
+		
+		        /// <summary>
+		        /// Checks to see if the given bot id exists already.
+		        /// </summary>
+		        /// <param name="id">The bot id to check</param>
+		        /// <returns>True if the id exists, false otherwise.</returns>
+		        private bool botIDExists(String id)
+		        {
+		            return getBot(id) > -1;
+		        }
+		
+		        private bool isBotID(String id)
+		        {
+		            return id.StartsWith("B-");
+		        }
+		
+		        /// <summary>
+		        /// Gets the index at which the given bot id resides.
+		        /// </summary>
+		        /// <param name="id">The bot id</param>
+		        /// <returns>The index in the bots array, or -1 if not found</returns>
+		        private int getBot(String id)
+		        {
+		            for (int i = 0; i < bots.Count; i++) {
+		                if (bots[i].id.Equals(id))
+		                    return i;
+		            }
+		            return -1;
+		        }
+		
+		        /// <summary>
+		        /// Drops this bot from the server.
+		        /// </summary>
+		        /// <param name="index">The index of the bot to remove</param>
+		        /// <returns>The id of the bot just removed</returns>
+		        private String removeBot(int index)
+		        {
+		            if (bots.Count == 0 || index >= bots.Count)
+		                return null;
+		            String id = bots[index].id;
+		            bots.RemoveAt(index);
+		            return id;
+		        }
+		
+		        /// <summary>
+		        /// Creates a bot.
+		        /// </summary>
+		        /// <param name="creator">The tag of the player that will hold the bot's data initially.</param>
+		        /// <param name="objectType">The type of the bot.</param>
+		        private void createBot(String creator, ObjectType objectType, String botTypeString = "Bot")
+		        {
+		            String id = getBotID();
+		            String botName = botTypeString + " " + id;
+		            String botId = "B-" + id;
+		            CSCommon.sendData(clientList[creator].client, CSCommon.buildCMDString(CSCommon.cmd_createBot, botId, botName, (byte)objectType));
+		            //Other players will just see another spawn.
+		            propogate(CSCommon.buildCMDString(CSCommon.cmd_distributeServerTag, botId, botName, (byte)objectType, (short)0), clientList[creator].client);
+		            if (objectType == ObjectType.aircraft)
+		                sendMessage(botName + " has been created.", null);
+		            bots.Add(new BotInfo(creator, botId, botName, objectType));
+		            bots.Sort();
+		            output(LoggingLevels.debug, "Bot " + botName + " created");
+		        }
 		public void setForceGameEnd(String reason)
 		{
 			forceGameEnd = true;

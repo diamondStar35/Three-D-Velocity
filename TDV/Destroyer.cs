@@ -6,29 +6,32 @@
 * Copyright (C) Munawar Bijani
 */
 using System;
-using System.Threading;
 using BPCSharedComponent.ExtendedAudio;
-using BPCSharedComponent.ExtendedAudio;
+
 namespace TDV
 {
-	public class Tank : MissionObjectBase
+	public class Destroyer : MissionObjectBase
 	{
 		private ExtendedAudioBuffer moveSound;
 		private bool firstLoad;
-		public Tank(float x, float y, Instructions i)
-			: base("t", i)
+
+		public Destroyer(float x, float y, Instructions i)
+			: base("Destroyer", i)
 		{
 			firstLoad = true;
 			this.x = x;
 			this.y = y;
-			setSpan(0.01f, 0.01f);
-			neutralizeSpeed(20f);
-			weapon.weaponIndex = WeaponTypes.tankMissile;
-			moveSound = loadSound(soundPath + "e8.wav");
-			explodeString = soundPath + "d4.wav";
+			setSpan(0.5f, 0.5f);
+			neutralizeSpeed(100f); // Faster than BattleShip (50)
+			weapon.weaponIndex = WeaponTypes.battleShipGuns;
+			// Reusing BattleShip sounds for now
+			moveSound = loadSound(soundPath + "e7.wav");
+			explodeString = soundPath + "d3.wav";
+			maxProbability = 20;
+			setDamagePoints(3000);
 		}
 
-		public Tank()
+		public Destroyer()
 			: this(0f, 0f, new Instructions())
 		{
 			instructions.addNode(false, 0, 0);
@@ -73,6 +76,5 @@ namespace TDV
 			base.freeResources();
 			DSound.unloadSound(ref moveSound);
 		}
-
 	}
 }

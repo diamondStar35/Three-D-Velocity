@@ -78,7 +78,10 @@ namespace TDV
 		public override void use()
 		{
 			direction = weapon.creator.direction;
-			z = origTarget.z;
+			if (origTarget != null)
+				z = origTarget.z;
+			else
+				z = weapon.creator.z;
 		}
 
 		public override void free()

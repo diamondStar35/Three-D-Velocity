@@ -436,6 +436,10 @@ namespace TDV
 										addOns = processAddOns(cmds);
 										break;
 
+									case CSCommon.cmd_updateBotSettings:
+										Options.BotsAttackBots = cmds.ReadBoolean();
+										break;
+
 									case CSCommon.cmd_chat:
 										MessageType type = (MessageType)cmds.ReadByte();
 										if (type == MessageType.normal)
@@ -881,11 +885,12 @@ namespace TDV
 		/// <summary>
 		/// Sends a create bot command to the server.
 		/// </summary>
-		public static void addBot()
+		/// <param name="type">The type of bot to create (e.g. Fighter, Tank)</param>
+		public static void addBot(String type)
 		{
 			if (Options.mode == Options.Modes.teamDeath)
 				return;
-			Client.sendData(CSCommon.buildCMDString(CSCommon.cmd_createBot));
+			Client.sendData(CSCommon.buildCMDString(CSCommon.cmd_createBot, type));
 		}
 
 		/// <summary>

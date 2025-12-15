@@ -708,7 +708,7 @@ namespace TDV
 				canceledCurrent = false;
 				assigned = 0;
 				if (mapKeyboard)
-					KeyMap.getKeyStrings(Aircraft.Action.exitGame, Aircraft.Action.switchWeapon,
+					KeyMap.getKeyStrings(false, Aircraft.Action.exitGame, Aircraft.Action.switchWeapon,
 						Aircraft.Action.switchToWeapon1,
 						Aircraft.Action.switchToWeapon2, Aircraft.Action.switchToWeapon3,
 						Aircraft.Action.switchToWeapon4, Aircraft.Action.switchToWeapon5,
@@ -716,7 +716,7 @@ namespace TDV
 						Aircraft.Action.endStrafe, Aircraft.Action.cloak, Aircraft.Action.deCloak
 					).CopyTo(strKeys, 0);
 				else
-					KeyMap.getKeyStrings(Aircraft.Action.throttleUp, Aircraft.Action.throttleDown, Aircraft.Action.turnLeft, Aircraft.Action.turnRight,
+					KeyMap.getKeyStrings(true, Aircraft.Action.throttleUp, Aircraft.Action.throttleDown, Aircraft.Action.turnLeft, Aircraft.Action.turnRight,
 						Aircraft.Action.bankLeft, Aircraft.Action.bankRight, Aircraft.Action.leftBarrelRoll, Aircraft.Action.rightBarrelRoll, Aircraft.Action.splitS,
 						Aircraft.Action.ascend, Aircraft.Action.descend, Aircraft.Action.level, Aircraft.Action.togglePointOfView,
 						Aircraft.Action.increaseMusicVolume, Aircraft.Action.decreaseMusicVolume, Aircraft.Action.exitGame, Aircraft.Action.switchToWeapon1, Aircraft.Action.switchToWeapon2, Aircraft.Action.switchToWeapon3, Aircraft.Action.switchToWeapon4, Aircraft.Action.switchToWeapon5, Aircraft.Action.admin, Aircraft.Action.endStrafe, Aircraft.Action.removeBot, Aircraft.Action.addBot, Aircraft.Action.cloak, Aircraft.Action.deCloak
@@ -1159,6 +1159,27 @@ namespace TDV
 		private bool selectMode()
 		{
 			return selectMode(true);
+		}
+
+		public String selectBotType()
+		{
+			string[] sv_bots = { "f.wav", "c.wav", "sb.wav", "int.wav", "elf.wav", "drn.wav", "ace.wav" }; // Assuming sound files exist or fallback to TTS
+			string[] sr_bots = { "Fighter", "Chopper", "SAM", "Interceptor", "Elite Fighter", "Drone", "Ace" };
+			
+			int index;
+			if (Options.menuVoiceMode == Options.VoiceModes.selfVoice)
+			{
+				index = Common.sVGenerateMenu("Select a bot type", sv_bots, sr_bots, 0, null, Common.getIncDecVol(), false);
+			}
+			else
+			{
+				index = Common.GenerateMenu("Select a bot type", sr_bots, 0, Common.getIncDecVol());
+			}
+
+			if (index == -1)
+				return null;
+
+			return sr_bots[index];
 		}
 
 		public void startWaitCursor()
