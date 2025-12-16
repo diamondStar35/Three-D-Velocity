@@ -162,8 +162,7 @@ namespace TDV
 			endStrafe,
 			cloak,
 			deCloak,
-			toggleGuidanceSystem,
-			ReportTargetDetails
+			toggleGuidanceSystem
 		}
 
 
@@ -951,6 +950,10 @@ namespace TDV
 					{
 						playSound(turnRightTone, true, true);
 					}
+					else if (DSound.isPlaying(turnRightTone))
+					{
+						turnRightTone.stop();
+					}
 				}
 				else
 				{
@@ -958,6 +961,10 @@ namespace TDV
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(turnLeftTone, true, true);
+					}
+					else if (DSound.isPlaying(turnLeftTone))
+					{
+						turnLeftTone.stop();
 					}
 				}
 			} else {
@@ -981,6 +988,10 @@ namespace TDV
 					{
 						playSound(descendTone, true, true);
 					}
+					else if (DSound.isPlaying(descendTone))
+					{
+						descendTone.stop();
+					}
 				}
 				else
 				{
@@ -988,6 +999,10 @@ namespace TDV
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(ascendTone, true, true);
+					}
+					else if (DSound.isPlaying(ascendTone))
+					{
+						ascendTone.stop();
 					}
 				}
 			} else {
@@ -4035,9 +4050,7 @@ weapon.firingRange);
 					case Action.removeBot:
 						Client.removeBot();
 						break;
-					case Action.ReportTargetDetails:
-						reportTargetDetails();
-						break;
+
 
 					case Action.leftBarrelRoll:
 						leftBarrelRoll();
@@ -4240,46 +4253,7 @@ weapon.firingRange);
 			iteratingActions = false;
 		}
 
-		private void reportTargetDetails()
-		{
-			if (!weapon.isValidLock())
-			{
-				SapiSpeech.speak("No target locked.", SapiSpeech.SpeakFlag.interruptable);
-				return;
-			}
 
-			Projector target = weapon.getLockedTarget();
-			RelativePosition relPos = getPosition(target);
-
-			string targetName = Common.getFriendlyNameOf(target.ToString());
-
-			string distanceStr = $"{Common.cultureNeutralRound(relPos.distance, 1)} miles";
-
-			string bearingStr = $"{relPos.clockMark} o'clock";
-
-			float altitudeDiff = relPos.vDistance;
-			string altitudeStr = "";
-			if (Math.Abs(altitudeDiff) < 100)
-			{
-				altitudeStr = "same altitude";
-			}
-			else if (altitudeDiff > 0)
-			{
-				altitudeStr = $"{Math.Round(altitudeDiff)} feet above";
-			}
-			else
-			{
-				altitudeStr = $"{Math.Round(Math.Abs(altitudeDiff))} feet below";
-			}
-
-			string speedStr = $"{Math.Round(target.speed)} miles per hour";
-
-			string headingStr = $"heading {target.direction} degrees";
-
-			string finalReport = $"{targetName} , {distanceStr} , {bearingStr} , {altitudeStr} , at {speedStr} , {headingStr}";
-
-			SapiSpeech.speak(finalReport, SapiSpeech.SpeakFlag.interruptable);
-		}
 
 		private void soundLowFuelAlarm()
 		{
