@@ -182,6 +182,7 @@
     <Compile Include="DSound.cs" />
     <Compile Include="DXInput.cs" />
     <Compile Include="ExtendedAudioBuffer.cs" />
+    <Compile Include="OpenALSourcePool.cs" />
     <Compile Include="OggBuffer.cs" />
     <Compile Include="Range.cs" />
     <Compile Include="RelativePosition.cs" />

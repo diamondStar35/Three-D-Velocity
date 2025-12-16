@@ -242,7 +242,6 @@
     <Compile Include="Common.cs" />
     <Compile Include="CSCommon.cs" />
     <Compile Include="Desk.cs" />
-    <Compile Include="Destroyer.cs" />
     <Compile Include="Drone.cs" />
     <Compile Include="EliteFighter.cs" />
     <Compile Include="ExtraItem.cs" />

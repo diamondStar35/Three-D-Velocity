@@ -236,11 +236,19 @@ namespace BPCSharedComponent.ExtendedAudio
 		public static void PlaySound3d(ExtendedAudioBuffer sound, bool stop, bool loop, float x, float y, float z, float vx=0, float vy=0, float vz=0, CalculateFlags flags = CalculateFlags.Matrix | CalculateFlags.Doppler | CalculateFlags.LpfDirect | CalculateFlags.LpfReverb, float curveDistanceScaler = 1.0f)
 		{
 			sound.Is3D = true;
-			sound.ensureAlObjects();
+			if (!sound.ensureAlObjects())
+			{
+				// Unable to create/obtain an OpenAL source; abandon playback to avoid crashing.
+				return;
+			}
 
 			if (stop)
 			{
 				sound.stop();
+				if (!sound.ensureAlObjects())
+				{
+					return;
+				}
 			}
 
 			// Game uses (X, Z, Y), OpenAL uses (X, Y, -Z)
@@ -354,6 +362,7 @@ namespace BPCSharedComponent.ExtendedAudio
 			musicDevice.Dispose();
 			mainMasteringVoice.Dispose();
 			mainSoundDevice.Dispose();
+			OpenALSourcePool.DisposeAll();
 			alContext?.Dispose();
 			alDevice?.Dispose();
 		}

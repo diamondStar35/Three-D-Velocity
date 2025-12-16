@@ -46,11 +46,7 @@ namespace BPCSharedComponent.ExtendedAudio
 			{
 				if (Is3D)
 				{
-					if (AlSource != null && AlSource.State == AudioSourceState.Playing)
-					{
-						return State.playing;
-					}
-					return State.stopped;
+					return OpenALSourcePool.GetState(this);
 				}
 
 				if (isInitializingPlayback)
@@ -136,10 +132,7 @@ namespace BPCSharedComponent.ExtendedAudio
 		{
 			if (Is3D)
 			{
-				if (AlSource != null && AlSource.State == AudioSourceState.Playing)
-				{
-					AlSource.Stop();
-				}
+				OpenALSourcePool.Return(this);
 			}
 			else
 			{
@@ -206,7 +199,7 @@ namespace BPCSharedComponent.ExtendedAudio
 			voice.SetOutputMatrix(sourceChannels, destinationChannels, levelMatrixRef);
 		}
 
-		public void ensureAlObjects()
+		public bool ensureAlObjects()
 		{
 			if (AlBuffer == null)
 			{
@@ -220,9 +213,13 @@ namespace BPCSharedComponent.ExtendedAudio
 			}
 			if (AlSource == null)
 			{
-				AlSource = new AudioSource();
+				AlSource = OpenALSourcePool.Rent(this);
+				if (AlSource == null)
+					return false;
 				AlSource.Buffer = AlBuffer;
 			}
+
+			return true;
 		}
 
 		private int GetAlFormat(int channels, int bitsPerSample)
@@ -249,7 +246,7 @@ namespace BPCSharedComponent.ExtendedAudio
 				if (disposing) {
 					if (Is3D)
 					{
-						AlSource?.Dispose();
+						OpenALSourcePool.Return(this);
 						AlBuffer?.Dispose();
 					}
 					voice.Dispose();

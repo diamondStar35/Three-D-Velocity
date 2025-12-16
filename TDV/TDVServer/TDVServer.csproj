@@ -7,8 +7,18 @@
     <AssemblyName>TDVServer</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <OutputPath>..\Three-D-Velocity-Binaries\</OutputPath>
+    <OutputPath>..\Three-D-Velocity-Binaries\server\win-x64\</OutputPath>
     <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <PublishDir>..\Three-D-Velocity-Binaries\server\win-x64\</PublishDir>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)'=='linux-x64'">
+    <OutputPath>..\Three-D-Velocity-Binaries\server\linux-x64\</OutputPath>
+    <PlatformTarget>x64</PlatformTarget>
+    <PublishDir>..\Three-D-Velocity-Binaries\server\linux-x64\</PublishDir>
   </PropertyGroup>
 
   <ItemGroup>

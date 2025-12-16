@@ -566,8 +566,6 @@ namespace TDV
 				return new Tank();
 			else if (lowerName.StartsWith("interceptor"))
 				return new Interceptor();
-			else if (lowerName.StartsWith("destroyer"))
-				return new Destroyer();
 			else if (lowerName.StartsWith("elite fighter") || lowerName.StartsWith("elitefighter"))
 				return new EliteFighter();
 			else if (lowerName.StartsWith("drone"))

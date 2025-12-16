@@ -2419,7 +2419,7 @@ weapon.firingRange);
 					Projector t = weapon.getInterceptorLock();
 					if (Options.hrtfEnabled)
 					{
-						DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+						DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
 					}
 					else
 					{
@@ -2440,7 +2440,7 @@ weapon.firingRange);
 						Projector t = weapon.getLockedTarget();
 						if (Options.hrtfEnabled)
 						{
-							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
 						}
 						else
 						{
@@ -2472,7 +2472,7 @@ weapon.firingRange);
 						targetSolutionSound.setFrequency(targetSolutionFreqCoefficient*p.degreesDifference);
 						if (Options.hrtfEnabled)
 						{
-							DSound.PlaySound3d(targetSolutionSound, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+								DSound.PlaySound3d(targetSolutionSound, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
 						}
 						else
 						{
@@ -2484,7 +2484,7 @@ weapon.firingRange);
 						float tY = t.y;
 						if (Options.hrtfEnabled)
 						{
-							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, velocity.X, velocity.Y, velocity.Z, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
 						}
 						else
 						{
