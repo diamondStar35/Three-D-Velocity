@@ -102,6 +102,8 @@ namespace OpenALSoft.Net.Native
         public const int FORMAT_MONO16 = 0x1101;
         public const int FORMAT_STEREO8 = 0x1102;
         public const int FORMAT_STEREO16 = 0x1103;
+        public const int FORMAT_MONO_FLOAT32 = 0x10010;
+        public const int FORMAT_STEREO_FLOAT32 = 0x10011;
 
         // Buffer Attributes
         public const int FREQUENCY = 0x2001;
