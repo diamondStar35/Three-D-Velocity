@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Configuration>Release</Configuration>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>TDVServer</RootNamespace>
@@ -9,6 +10,7 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <OutputPath>..\Three-D-Velocity-Binaries\server\win-x64\</OutputPath>
     <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>

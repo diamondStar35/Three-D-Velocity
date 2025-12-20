@@ -1251,11 +1251,13 @@ namespace TDVServer
             }
 		}
 
-		private static void broadcastBotSettings()
-		{
-			MemoryStream ms = CSCommon.buildCMDString(CSCommon.cmd_updateBotSettings, BotsAttackBots);
-			propogate(ms, null);
-		}
+                private static void broadcastBotSettings()
+                {
+                        if (clientList == null || clientList.Count == 0)
+                                return;
+                        MemoryStream ms = CSCommon.buildCMDString(CSCommon.cmd_updateBotSettings, BotsAttackBots);
+                        propogate(ms, null);
+                }
 
 		/// <summary>
 		/// Indicates whether this version is updating or not. If it is, the file will have already started

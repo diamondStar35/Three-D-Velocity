@@ -154,16 +154,22 @@ namespace TDV
 		private static AutoResetEvent waitingForResponse;
 		private static LoginMessages m_messages;
 		private static AddOnArgs[] addOns;
-		private static bool m_hostStartedGame;
+                private static bool m_hostStartedGame;
+                private static bool m_botsAttackBots = true;
 
 		/// <summary>
 		/// Indicates whether or not the host has started the game yet.
 		/// </summary>
-		public static bool hostStartedGame
-		{
-			get { return Client.m_hostStartedGame; }
-			set { Client.m_hostStartedGame = value; }
-		}
+                public static bool hostStartedGame
+                {
+                        get { return Client.m_hostStartedGame; }
+                        set { Client.m_hostStartedGame = value; }
+                }
+                public static bool BotsAttackBots
+                {
+                        get { return m_botsAttackBots; }
+                        set { m_botsAttackBots = value; }
+                }
 		private static Dictionary<String, ClientRecord> senders;
 		private static int[] ports = null;
 		private static bool m_gameHost;
@@ -437,7 +443,7 @@ namespace TDV
 										break;
 
 									case CSCommon.cmd_updateBotSettings:
-										Options.BotsAttackBots = cmds.ReadBoolean();
+										BotsAttackBots = cmds.ReadBoolean();
 										break;
 
 									case CSCommon.cmd_chat:
@@ -723,13 +729,14 @@ namespace TDV
 			DSound.unloadSound(ref chatEnterSound);
 			DSound.unloadSound(ref chatLeaveSound);
 			DSound.unloadSound(ref privateMessageSound);
-			DSound.unloadSound(ref chatSound);
-			DSound.unloadSound(ref serverMessageSound);
-			chatMessages.Clear();
-			chatPointer = 0;
-			if (log)
-				theFile.Close();
-			Common.mainGUI.leaveChat();
+                        DSound.unloadSound(ref chatSound);
+                        DSound.unloadSound(ref serverMessageSound);
+                        chatMessages.Clear();
+                        chatPointer = 0;
+                        m_botsAttackBots = true;
+                        if (log)
+                                theFile.Close();
+                        Common.mainGUI.leaveChat();
 		}
 		/// <summary>
 		/// Use this method for calls that require immediate responses from the server, such as an
@@ -882,16 +889,25 @@ namespace TDV
 			senders[id] = new ClientRecord();
 		}
 
-		/// <summary>
-		/// Sends a create bot command to the server.
-		/// </summary>
-		/// <param name="type">The type of bot to create (e.g. Fighter, Tank)</param>
-		public static void addBot(String type)
-		{
-			if (Options.mode == Options.Modes.teamDeath)
-				return;
-			Client.sendData(CSCommon.buildCMDString(CSCommon.cmd_createBot, type));
-		}
+                /// <summary>
+                /// Sends a create bot command to the server.
+                /// </summary>
+                public static void addBot()
+                {
+                        addBot("Bot");
+                }
+
+                /// <summary>
+                /// Sends a create bot command to the server with a custom bot type.
+                /// </summary>
+                public static void addBot(string botType)
+                {
+                        if (Options.mode == Options.Modes.teamDeath)
+                                return;
+                        if (string.IsNullOrWhiteSpace(botType))
+                                botType = "Bot";
+                        Client.sendData(CSCommon.buildCMDString(CSCommon.cmd_createBot, botType));
+                }
 
 		/// <summary>
 		/// Sends a remove bot command to the server.

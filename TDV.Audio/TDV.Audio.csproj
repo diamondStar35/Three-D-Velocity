@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MiniAudioExNET\MiniAudioExNET.csproj" />
+    <ProjectReference Include="..\SteamAudio.NET\Src\SteamAudio.NET.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+</Project>

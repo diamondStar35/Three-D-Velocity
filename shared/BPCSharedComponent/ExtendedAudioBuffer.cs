@@ -9,16 +9,11 @@ using System;
 using SharpDX.XAudio2;
 using SharpDX.X3DAudio;
 using System.Threading;
-using OpenALSoft.Net.Core;
-using AudioFormat = OpenALSoft.Net.Core.AudioFormat;
 
 namespace BPCSharedComponent.ExtendedAudio
 {
 	public class ExtendedAudioBuffer: IDisposable
 	{
-		public bool Is3D;
-		public AudioSource AlSource;
-		public OpenALSoft.Net.Core.AudioBuffer AlBuffer;
 		/// <summary>
 		/// Represents the state of our buffer. We have to implement our own states since there's no way to query
 		/// the SourceVoice and ask it about its state without attaching to its handles.
@@ -28,30 +23,31 @@ namespace BPCSharedComponent.ExtendedAudio
 			playing,
 			stopped
 		}
-		private SharpDX.XAudio2.AudioBuffer buffer;
+		private AudioBuffer buffer;
 		private SourceVoice voice;
 		private bool isInitializingPlayback; // If a consumer happens to query the state of this buffer while we're loading data, they might get State.stopped which is incorrect. So we'll use this flag to force this buffer to send State.playing.
-		private bool hasNeverPlayed;
-		private bool isStopped;
-		private bool looping;
-		private Action onEnd;
-		private SharpDX.Multimedia.WaveFormat format;
+        private bool hasNeverPlayed;
+        private bool isStopped;
+        private bool looping;
+        private Action onEnd;
+        internal Func<bool> ExternalIsPlaying;
+        internal Action ExternalStop;
+        internal Action<float> ExternalSetVolume;
+        internal Action<float> ExternalSetFrequency;
+        internal Action ExternalDispose;
 
 		/// <summary>
 		///  The state of the audio. It will begin in the stopped state.
 		/// </summary>
-		public State state
-		{
-			get
-			{
-				if (Is3D)
-				{
-					return OpenALSourcePool.GetState(this);
-				}
-
-				if (isInitializingPlayback)
-					return State.playing;
-				else {
+                public State state
+                {
+                        get
+                        {
+                                if (isInitializingPlayback)
+                                        return State.playing;
+                                if (ExternalIsPlaying != null && ExternalIsPlaying())
+                                        return State.playing;
+                                else {
 					// If this track is looping, we can't rely on buffersQueued since none of the buffers get flushed.
 					// So the only way to stop a looping track is if we explicitly call the stop method.
 					if (looping) {
@@ -71,11 +67,10 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// </summary>
 		/// <param name="buffer">The AudioBuffer with which to fill the SourceVoice. The SourceVoice can either be filled beforehand or filled by calling play(true, false).</param>
 		/// <param name="voice">The SourceVoice that represents the pipeline of the supplied Audio Buffer. In order to use onEnd, this voice must be instantiated with delegate support enabled.</param>
-		public ExtendedAudioBuffer(SharpDX.XAudio2.AudioBuffer buffer, SourceVoice voice, SharpDX.Multimedia.WaveFormat format)
+		public ExtendedAudioBuffer(AudioBuffer buffer, SourceVoice voice)
 		{
 			this.buffer = buffer;
 			this.voice = voice;
-			this.format = format;
 			hasNeverPlayed = true;
 			// Will only fire if callback support is enabled.
 			voice.StreamEnd += () =>
@@ -101,15 +96,10 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <param name="loop">Whether or not to loop the sound.</param>
 		public void play(bool stop, bool loop)
 		{
-			if (Is3D)
-			{
-				// Playback is handled by PlaySound3d for 3D sounds.
-				return;
-			}
 			this.looping = loop;
 			isInitializingPlayback = true;
 			if (loop) {
-				buffer.LoopCount = SharpDX.XAudio2.AudioBuffer.LoopInfinite;
+				buffer.LoopCount = AudioBuffer.LoopInfinite;
 			}
 			// We'll start the buffer from the beginning if we've never played this buffer before so that the sound can be loaded.
 			// Otherwise, the sound might start from a random position in the buffer.
@@ -128,17 +118,28 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// <summary>
 		/// Stops playback of the sound.
 		/// </summary>
-		public void stop()
+                public void stop()
+                {
+                        voice.Stop();
+                        isStopped = true;
+                        if (ExternalStop != null)
+                                ExternalStop();
+                }
+
+		/// <summary>
+		/// Applies 3-D settings represented by the supplied settings object to the sound.
+		/// </summary>
+		/// <param name="settings">The DspSettings object that represents changes that should be made to this sound.</param>
+		/// <param name="sourceChannels">The source channel count.</param>
+		/// <param name="destinationChannels">The destination channel count.</param>
+		/// <param name="flags">The 3D flags to calculate. The default will calculate volume and doppler shift. This parameter is useful if it is not desirable for XAudio2 to calculate doppler on sounds that modify their own frequencies as an example; in this case, the flags should omit doppler.</param>
+		public void apply3D(DspSettings settings, int sourceChannels, int destinationChannels, CalculateFlags flags)
 		{
-			if (Is3D)
-			{
-				OpenALSourcePool.Return(this);
+			voice.SetOutputMatrix(sourceChannels, destinationChannels, settings.MatrixCoefficients);
+			if ((flags & CalculateFlags.Doppler) == CalculateFlags.Doppler) {
+				voice.GetFrequencyRatio(out float freq);
+				voice.SetFrequencyRatio(settings.DopplerFactor * freq);
 			}
-			else
-			{
-				voice.Stop();
-			}
-			isStopped = true;
 		}
 
 		/// <summary>
@@ -155,10 +156,12 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// Sets the frequency of the sound.
 		/// </summary>
 		/// <param name="f">The frequency ratio of the sound expressed in semitones.</param>
-		public void setFrequency(float f)
-		{
-			voice.SetFrequencyRatio(XAudio2.SemitonesToFrequencyRatio(f));
-		}
+                public void setFrequency(float f)
+                {
+                        voice.SetFrequencyRatio(XAudio2.SemitonesToFrequencyRatio(f));
+                        if (ExternalSetFrequency != null)
+                                ExternalSetFrequency(f);
+                }
 
 		/// <summary>
 		/// Gets the volume of the sound.
@@ -174,10 +177,12 @@ namespace BPCSharedComponent.ExtendedAudio
 		/// Sets the volume of the sound.
 		/// </summary>
 		/// <param name="v">The volume to set the sound at.</param>
-		public void setVolume(float v)
-		{
-			voice.SetVolume(v);
-		}
+                public void setVolume(float v)
+                {
+                        voice.SetVolume(v);
+                        if (ExternalSetVolume != null)
+                                ExternalSetVolume(v);
+                }
 
 		/// <summary>
 		/// Gets the VoiceDetails for the sound.
@@ -199,62 +204,21 @@ namespace BPCSharedComponent.ExtendedAudio
 			voice.SetOutputMatrix(sourceChannels, destinationChannels, levelMatrixRef);
 		}
 
-		public bool ensureAlObjects()
-		{
-			if (AlBuffer == null)
-			{
-				AlBuffer = new OpenALSoft.Net.Core.AudioBuffer();
-				buffer.Stream.Position = 0;
-				byte[] data = new byte[buffer.AudioBytes];
-				buffer.Stream.Read(data, 0, data.Length);
-
-				var alFormat = GetAlFormat(this.format.Channels, this.format.BitsPerSample);
-				AlBuffer.BufferData(alFormat, data, this.format.SampleRate);
-			}
-			if (AlSource == null)
-			{
-				AlSource = OpenALSourcePool.Rent(this);
-				if (AlSource == null)
-					return false;
-				AlSource.Buffer = AlBuffer;
-			}
-
-			return true;
-		}
-
-		private int GetAlFormat(int channels, int bitsPerSample)
-		{
-			if (channels == 1)
-			{
-				if (bitsPerSample == 8) return (int)AudioFormat.Mono8;
-				if (bitsPerSample == 16) return (int)AudioFormat.Mono16;
-			}
-			else if (channels == 2)
-			{
-				if (bitsPerSample == 8) return (int)AudioFormat.Stereo8;
-				if (bitsPerSample == 16) return (int)AudioFormat.Stereo16;
-			}
-			throw new NotSupportedException("Unsupported audio format for OpenAL.");
-		}
-
 		#region IDisposable Support
 		private bool disposedValue = false; // To detect redundant calls
 
-		protected virtual void Dispose(bool disposing)
-		{
-			if (!disposedValue) {
-				if (disposing) {
-					if (Is3D)
-					{
-						OpenALSourcePool.Return(this);
-						AlBuffer?.Dispose();
-					}
-					voice.Dispose();
-					buffer.Stream.Dispose();
-				}
-				disposedValue = true;
-			}
-		}
+                protected virtual void Dispose(bool disposing)
+                {
+                        if (!disposedValue) {
+                                if (disposing) {
+                                        if (ExternalDispose != null)
+                                                ExternalDispose();
+                                        voice.Dispose();
+                                        buffer.Stream.Dispose();
+                                }
+                                disposedValue = true;
+                        }
+                }
 
 		// TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
 		// ~ExtendedAudioBuffer() {

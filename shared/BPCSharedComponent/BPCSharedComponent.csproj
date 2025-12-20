@@ -23,6 +23,7 @@
     </UpgradeBackupLocation>
     <OldToolsVersion>3.5</OldToolsVersion>
     <TargetFrameworkProfile />
+    <DefineConstants>HRTF_SUPPORT</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <OutputPath>bin\Debug\</OutputPath>
@@ -173,6 +174,11 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\TDV.Audio\TDV.Audio.csproj">
+      <Name>TDV.Audio</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="..\GlobalAssemblyInfo.cs">
       <Link>GlobalAssemblyInfo.cs</Link>
     </Compile>
@@ -182,7 +188,6 @@
     <Compile Include="DSound.cs" />
     <Compile Include="DXInput.cs" />
     <Compile Include="ExtendedAudioBuffer.cs" />
-    <Compile Include="OpenALSourcePool.cs" />
     <Compile Include="OggBuffer.cs" />
     <Compile Include="Range.cs" />
     <Compile Include="RelativePosition.cs" />
@@ -201,12 +206,6 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\open_al_net\OpenALSoft.Net\OpenALSoft.Net.csproj">
-      <Project>{22F42081-C29E-4EA2-B3F0-50EDF63F5D69}</Project>
-      <Name>OpenALSoft.Net</Name>
-    </ProjectReference>
   </ItemGroup>
   <ProjectExtensions>
     <VisualStudio>

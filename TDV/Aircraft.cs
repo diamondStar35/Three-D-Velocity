@@ -162,7 +162,8 @@ namespace TDV
 			endStrafe,
 			cloak,
 			deCloak,
-			toggleGuidanceSystem
+			toggleGuidanceSystem,
+			ReportTargetDetails
 		}
 
 
@@ -890,13 +891,24 @@ namespace TDV
 			} //if mission fighter
 		}
 
-		private void guidanceSystem()
-		{
-			if (SapiSpeech.isSpeaking()) return;
-			if (Environment.TickCount - guidanceMessageTime < guidanceMessageInterval)
-			{
-				return;
-			}
+                private void guidanceSystem()
+                {
+                        if (!Options.tonalGuidanceEnabled)
+                        {
+                                if (DSound.isPlaying(turnLeftTone))
+                                        turnLeftTone.stop();
+                                if (DSound.isPlaying(turnRightTone))
+                                        turnRightTone.stop();
+                                if (DSound.isPlaying(ascendTone))
+                                        ascendTone.stop();
+                                if (DSound.isPlaying(descendTone))
+                                        descendTone.stop();
+                        }
+                        if (SapiSpeech.isSpeaking()) return;
+                        if (Environment.TickCount - guidanceMessageTime < guidanceMessageInterval)
+                        {
+                                return;
+                        }
 
 			// Missile warning
 			List<Projector> projectiles = Interaction.getProjectiles(this);
@@ -950,10 +962,6 @@ namespace TDV
 					{
 						playSound(turnRightTone, true, true);
 					}
-					else if (DSound.isPlaying(turnRightTone))
-					{
-						turnRightTone.stop();
-					}
 				}
 				else
 				{
@@ -961,10 +969,6 @@ namespace TDV
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(turnLeftTone, true, true);
-					}
-					else if (DSound.isPlaying(turnLeftTone))
-					{
-						turnLeftTone.stop();
 					}
 				}
 			} else {
@@ -988,10 +992,6 @@ namespace TDV
 					{
 						playSound(descendTone, true, true);
 					}
-					else if (DSound.isPlaying(descendTone))
-					{
-						descendTone.stop();
-					}
 				}
 				else
 				{
@@ -999,10 +999,6 @@ namespace TDV
 					if (Options.tonalGuidanceEnabled)
 					{
 						playSound(ascendTone, true, true);
-					}
-					else if (DSound.isPlaying(ascendTone))
-					{
-						ascendTone.stop();
 					}
 				}
 			} else {
@@ -1078,10 +1074,16 @@ namespace TDV
 			return $"Missile at {missilePos.clockMark} o'clock! {urgency}{maneuver}";
 		}
 
-		private void proximityWarningSystem()
-		{
-			bool missileClose = false;
-			List<Projector> projectiles = Interaction.getProjectiles(this);
+                private void proximityWarningSystem()
+                {
+                        if (!Options.tonalGuidanceEnabled)
+                        {
+                                if (DSound.isPlaying(missileProximityWarningTone))
+                                        missileProximityWarningTone.stop();
+                                return;
+                        }
+                        bool missileClose = false;
+                        List<Projector> projectiles = Interaction.getProjectiles(this);
 			if (projectiles != null)
 			{
 				foreach (Projector p in projectiles)
@@ -1617,7 +1619,7 @@ namespace TDV
 				if (targetSolutionSound == null)
 					targetSolutionSound = DSound.LoadSound(DSound.SoundPath + "\\alarm5.wav");
 				if (targetSolutionSound3 == null)
-					targetSolutionSound3 = DSound.LoadSound(DSound.SoundPath + "\\alarm7.wav", true);
+					targetSolutionSound3 = loadSound(soundPath + "alarm7.wav");
 				if (altitudeWarningAlarm == null)
 					altitudeWarningAlarm = loadSound(soundPath + "alarm1.wav");
 				if (turnSignal == null)
@@ -1905,11 +1907,17 @@ namespace TDV
 			Interaction.RangeFlag.existing, true); //order the objects so that the first one is nearest to this aircraft
 
 			//if there's nothing in range, or the thing in range is not supposed to be locked onto then just return.
-			if (vArray == null
-			|| (vArray.Count == 1 && !vArray[0].showInList))
-				return false;
+                        if (vArray == null
+                        || (vArray.Count == 1 && !vArray[0].showInList))
+                                return false;
 
-			String id = null;
+                        if (Options.isPlayingOnline && isBot() && !Client.BotsAttackBots) {
+                                vArray.RemoveAll(p => p.isBot());
+                                if (vArray.Count == 0)
+                                        return false;
+                        }
+
+                        String id = null;
 			if (!isAI) {
 				string[] strArray = new string[(Options.mode == Options.Modes.mission && !isAI) ? (vArray.Count + 1) : (vArray.Count)];
 				int i = 0;
@@ -1950,13 +1958,6 @@ namespace TDV
 					return false;
 				id = vArray[index].id;
 			} else { //if AI
-				if (!Options.BotsAttackBots)
-				{
-					// Filter out bots
-					vArray.RemoveAll(p => p.role == OnlineRole.bot);
-				}
-				if (vArray.Count == 0) return false;
-
 				int selectedID = 0;
 				do {
 					id = vArray[selectedID = Common.getRandom(vArray.Count - 1)].id;
@@ -2428,19 +2429,8 @@ weapon.firingRange);
 
 			if (weapon.weaponIndex == WeaponTypes.missileInterceptor) {
 				targetSolutionSound.stop();
-				if (weapon.getInterceptorLock() != null) {
-					float tx = weapon.getInterceptorLock().x;
-					float tY = weapon.getInterceptorLock().y;
-					Projector t = weapon.getInterceptorLock();
-					if (Options.hrtfEnabled)
-					{
-						DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
-					}
-					else
-					{
-						DSound.PlaySound(targetSolutionSound3, false, true);
-					}
-				}
+				if (weapon.getInterceptorLock() != null)
+					playSound(targetSolutionSound3, false, true);
 				else
 					targetSolutionSound3.stop();
 				return;
@@ -2450,17 +2440,7 @@ weapon.firingRange);
 				targetSolutionSound.stop();
 				if (weapon.cruiseMissileLocked()) {
 					if (weapon.inFiringRange()) {
-						float tx = weapon.getLockedTarget().x;
-						float tY = weapon.getLockedTarget().y;
-						Projector t = weapon.getLockedTarget();
-						if (Options.hrtfEnabled)
-						{
-							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
-						}
-						else
-						{
-							DSound.PlaySound(targetSolutionSound3, false, true);
-						}
+						playSound(targetSolutionSound3, false, true);
 						if (Options.mode == Options.Modes.training && currentStage == TrainingStages.solidToneOnFighter1)
 							completedTrainingStage = true;
 					} else
@@ -2487,7 +2467,7 @@ weapon.firingRange);
 						targetSolutionSound.setFrequency(targetSolutionFreqCoefficient*p.degreesDifference);
 						if (Options.hrtfEnabled)
 						{
-								DSound.PlaySound3d(targetSolutionSound, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
+							DSound.PlaySound3d(targetSolutionSound, false, true, tx, t.z, tY, flags: SharpDX.X3DAudio.CalculateFlags.Matrix, curveDistanceScaler: Common.getCurveDistanceScaler());
 						}
 						else
 						{
@@ -2495,16 +2475,7 @@ weapon.firingRange);
 						}
 					} else { //if degree difference==0
 						targetSolutionSound.stop();
-						float tx = t.x;
-						float tY = t.y;
-						if (Options.hrtfEnabled)
-						{
-							DSound.PlaySound3d(targetSolutionSound3, false, true, tx, t.z, tY, 0, 0, 0, SharpDX.X3DAudio.CalculateFlags.Matrix | SharpDX.X3DAudio.CalculateFlags.Doppler, Common.getCurveDistanceScaler());
-						}
-						else
-						{
-							DSound.PlaySound(targetSolutionSound3, false, true);
-						}
+						playSound(targetSolutionSound3, false, true);
 						if (Options.mode == Options.Modes.training && currentStage == TrainingStages.solidToneOnFighter1)
 							completedTrainingStage = true;
 					} //if degrees difference=0
@@ -4037,20 +4008,16 @@ weapon.firingRange);
 						else
 							SapiSpeech.speak("Guidance system disabled.");
 						break;
-					case Action.addBot:
-						Interaction.muteAllObjects(false);
-						pauseInput();
-						string type = Common.mainGUI.selectBotType();
-						resumeInput();
-						if (type != null)
-							Client.addBot(type);
-						Interaction.unmuteAllObjects();
-						break;
+                                case Action.addBot:
+                                        addBotMenu();
+                                        break;
 
 					case Action.removeBot:
 						Client.removeBot();
 						break;
-
+					case Action.ReportTargetDetails:
+						reportTargetDetails();
+						break;
 
 					case Action.leftBarrelRoll:
 						leftBarrelRoll();
@@ -4253,7 +4220,46 @@ weapon.firingRange);
 			iteratingActions = false;
 		}
 
+		private void reportTargetDetails()
+		{
+			if (!weapon.isValidLock())
+			{
+				SapiSpeech.speak("No target locked.", SapiSpeech.SpeakFlag.interruptable);
+				return;
+			}
 
+			Projector target = weapon.getLockedTarget();
+			RelativePosition relPos = getPosition(target);
+
+			string targetName = Common.getFriendlyNameOf(target.ToString());
+
+			string distanceStr = $"{Common.cultureNeutralRound(relPos.distance, 1)} miles";
+
+			string bearingStr = $"{relPos.clockMark} o'clock";
+
+			float altitudeDiff = relPos.vDistance;
+			string altitudeStr = "";
+			if (Math.Abs(altitudeDiff) < 100)
+			{
+				altitudeStr = "same altitude";
+			}
+			else if (altitudeDiff > 0)
+			{
+				altitudeStr = $"{Math.Round(altitudeDiff)} feet above";
+			}
+			else
+			{
+				altitudeStr = $"{Math.Round(Math.Abs(altitudeDiff))} feet below";
+			}
+
+			string speedStr = $"{Math.Round(target.speed)} miles per hour";
+
+			string headingStr = $"heading {target.direction} degrees";
+
+			string finalReport = $"{targetName} , {distanceStr} , {bearingStr} , {altitudeStr} , at {speedStr} , {headingStr}";
+
+			SapiSpeech.speak(finalReport, SapiSpeech.SpeakFlag.interruptable);
+		}
 
 		private void soundLowFuelAlarm()
 		{
@@ -4717,8 +4723,8 @@ weapon.firingRange);
 		}
 
 
-		private void weaponsRadar()
-		{
+                private void weaponsRadar()
+                {
 			List<Projector> w = null;
 			string[] menuStr = null;
 			String name = "";
@@ -4740,12 +4746,35 @@ weapon.firingRange);
 				Interaction.stopAndMute(false);
 				Common.executeSvOrSr(() => Common.sVGenerateMenu(null, menuStr, 0, "n"), () => Common.GenerateMenu(null, menuStr, 0), Options.menuVoiceMode);
 				Interaction.resumeAndUnmute();
-				resumeInput();
-			} //if have projectiles
-		}
+                                resumeInput();
+                        } //if have projectiles
+                }
 
-		private void executeStatusCommand()
-		{
+                private void addBotMenu()
+                {
+                        if (!Options.isPlayingOnline)
+                                return;
+                        string[] botTypes = new string[]
+                        {
+                                "Fighter",
+                                "Chopper",
+                                "Elite fighter",
+                                "Intercepter",
+                                "Drone",
+                                "Ace aircraft"
+                        };
+                        pauseInput();
+                        Interaction.stopAndMute(false);
+                        int choice = Common.GenerateMenu("Select bot type", botTypes);
+                        Interaction.resumeAndUnmute();
+                        resumeInput();
+                        if (choice < 0)
+                                return;
+                        Client.addBot(botTypes[choice]);
+                }
+
+                private void executeStatusCommand()
+                {
 			if (waitingForHost())
 				return; //No status commands when game hasn't started.
 			bool e = false, t = false;

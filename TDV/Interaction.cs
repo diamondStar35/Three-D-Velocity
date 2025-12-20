@@ -1401,26 +1401,7 @@ namespace TDV
 			Track t = new Track(Options.currentTrack);
 			Projector p = null;
 			if (type == ObjectType.aircraft)
-			{
-				// Attempt to create specific object based on name (e.g. Tank, Chopper)
-				// If name is generic or matches Aircraft logic, Mission.createNewObject handles it.
-				// We fallback to standard Aircraft if Mission.createNewObject fails or for standard cases if needed,
-				// but Mission.createNewObject is the central factory now.
-				try
-				{
-					p = Mission.createNewObject(name);
-					// If it's an aircraft, we need to ensure it has the track set if the constructor didn't do it.
-					// However, Mission.createNewObject calls new Aircraft(name) which doesn't take track.
-					// Wait, Mission.createNewObject calls `new Aircraft(name)`.
-					// `Aircraft(string name)` constructor calls `this(0, 1500, name, true, new Track(Options.currentTrack))`.
-					// So track is handled.
-				}
-				catch
-				{
-					// Fallback if name parsing fails (shouldn't happen with correct server logic)
-					p = new Aircraft(0, 1500, name, true, t);
-				}
-			}
+				p = new Aircraft(0, 1500, name, true, t);
 			else if (type == ObjectType.carrierBlue)
 				p = new AircraftCarrier(5f, 5f);
 			else if (type == ObjectType.carrierGreen)

@@ -77,10 +77,10 @@ namespace TDV
 		cmd_requestAdmin = 35,
 		cmd_setMessage = 36,
 		cmd_resp = 37,
-		cmd_test = 38,
-		cmd_addMember = 39,
-		cmd_removeMember = 40,
-		cmd_updateBotSettings = 41;
+                cmd_test = 38,
+                cmd_addMember = 39,
+                cmd_removeMember = 40,
+                cmd_updateBotSettings = 41;
 		private static int m_secondsTimeout = 5;
 		public static int secondsTimeout { get { return m_secondsTimeout; } }
 
@@ -135,28 +135,9 @@ namespace TDV
 		/// <returns>True on success, false on failure.</returns>
 		public static bool sendData(TcpClient client, MemoryStream data)
 		{
-			if (client == null || data == null)
-				return false;
-
-			if (!client.Connected || client.Client == null)
-				return false;
-
 			bool success = false;
 			data.Position = 0;
-
-			NetworkStream stream;
-			try
-			{
-				stream = client.GetStream();
-			}
-			catch (ObjectDisposedException)
-			{
-				return false;
-			}
-
-			if (stream == null)
-				return false;
-
+			NetworkStream stream = client.GetStream();
 			// We need to make room for the data, + how ever many bytes are required to store the size of the payload.
 			byte[] buffer = new byte[data.Length + sizeof(uint)];
 			data.Read(buffer, sizeof(uint), (int)data.Length);

@@ -171,8 +171,6 @@ namespace TDV
 			set;
 		}
 
-		public static bool BotsAttackBots { get; set; } = true;
-
 		public static bool guidanceSystemEnabled { get; set; } = false;
 		public static bool tonalGuidanceEnabled { get; set; } = false;
 		public static bool hrtfEnabled { get; set; } = false;
