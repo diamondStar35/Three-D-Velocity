@@ -38,7 +38,12 @@ namespace TDVServer
 			carrierBlue,
 			carrierGreen,
 			carrierRed,
-			carrierYellow
+			carrierYellow,
+			chopper,
+			eliteFighter,
+			intercepter,
+			drone,
+			aceAircraft
 		}
 
 		private Object returnsLock;
@@ -304,17 +309,30 @@ namespace TDVServer
 
 							case CSCommon.cmd_createBot:
 								//The player who creates the bot will spawn a thread to control them.
-								string botType = rcvData.ReadString();
-								createBot(tag, ObjectType.aircraft, botType);
-								break;
+                                                                string botType = rcvData.ReadString();
+                                                                string botTypeKey = string.IsNullOrWhiteSpace(botType) ? "Bot" : botType.Trim();
+                                                                string botTypeMatch = botTypeKey.ToLowerInvariant();
+                                                                ObjectType oType = ObjectType.aircraft;
+                                                                if (botTypeMatch == "chopper") oType = ObjectType.chopper;
+                                                                else if (botTypeMatch == "elite fighter" || botTypeMatch == "elitefighter") oType = ObjectType.eliteFighter;
+                                                                else if (botTypeMatch == "intercepter" || botTypeMatch == "interceptor") oType = ObjectType.intercepter;
+                                                                else if (botTypeMatch == "drone") oType = ObjectType.drone;
+                                                                else if (botTypeMatch == "ace aircraft" || botTypeMatch == "aceaircraft") oType = ObjectType.aceAircraft;
+                                                                createBot(tag, oType, botTypeKey);
+                                                                break;
 
-							case CSCommon.cmd_removeBot:
-								String rBotId = removeBot(0);
-								if (rBotId == null)
-									break;
-								sendMessage(rBotId + " has been dropped from the server", null);
-								propogate(CSCommon.buildCMDString(CSCommon.cmd_forceDisconnect, rBotId), null);
-								break;
+                                                        case CSCommon.cmd_removeBot:
+                                                                String rBotName = null;
+                                                                String rBotId = null;
+                                                                if (bots.Count > 0) {
+                                                                        rBotName = bots[0].name;
+                                                                        rBotId = removeBot(0);
+                                                                }
+                                                                if (rBotId == null)
+                                                                        break;
+                                                                sendMessage((String.IsNullOrEmpty(rBotName) ? rBotId : rBotName) + " has been dropped from the server", null);
+                                                                propogate(CSCommon.buildCMDString(CSCommon.cmd_forceDisconnect, rBotId), null);
+                                                                break;
 
 							case CSCommon.cmd_whois:
 								using (BinaryWriter whoWriter = new BinaryWriter(new MemoryStream())) {
@@ -780,7 +798,7 @@ namespace TDVServer
 		            CSCommon.sendData(clientList[creator].client, CSCommon.buildCMDString(CSCommon.cmd_createBot, botId, botName, (byte)objectType));
 		            //Other players will just see another spawn.
 		            propogate(CSCommon.buildCMDString(CSCommon.cmd_distributeServerTag, botId, botName, (byte)objectType, (short)0), clientList[creator].client);
-		            if (objectType == ObjectType.aircraft)
+		            if (objectType == ObjectType.aircraft || objectType >= ObjectType.chopper)
 		                sendMessage(botName + " has been created.", null);
 		            bots.Add(new BotInfo(creator, botId, botName, objectType));
 		            bots.Sort();

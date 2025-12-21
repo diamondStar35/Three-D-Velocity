@@ -1190,20 +1190,29 @@ namespace TDVServer
 			}
 		}
 
-		private static int menu(String prompt, params String[] options)
-		{
-			while (!crash) {
-				System.Console.WriteLine(prompt);
-				int i = 0;
-				foreach (String option in options)
-					System.Console.WriteLine((++i) + ": " + option);
-				int resp = Convert.ToInt32(System.Console.ReadLine());
-				System.Console.WriteLine(resp);
-				if (resp == 0)
-					return 0;
-				if (resp < 0 || resp > options.Length) {
-					System.Console.WriteLine("Invalid choice.");
-					continue;
+                private static int menu(String prompt, params String[] options)
+                {
+                        while (!crash) {
+                                System.Console.WriteLine(prompt);
+                                int i = 0;
+                                foreach (String option in options)
+                                        System.Console.WriteLine((++i) + ": " + option);
+                                String input = System.Console.ReadLine();
+                                if (String.IsNullOrWhiteSpace(input)) {
+                                        System.Console.WriteLine("Invalid choice.");
+                                        continue;
+                                }
+                                int resp;
+                                if (!Int32.TryParse(input, out resp)) {
+                                        System.Console.WriteLine("Invalid choice.");
+                                        continue;
+                                }
+                                System.Console.WriteLine(resp);
+                                if (resp == 0)
+                                        return 0;
+                                if (resp < 0 || resp > options.Length) {        
+                                        System.Console.WriteLine("Invalid choice.");
+                                        continue;
 				}
 				return resp;
 			}

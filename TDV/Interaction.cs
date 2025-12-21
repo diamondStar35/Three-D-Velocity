@@ -1388,34 +1388,47 @@ namespace TDV
 		/// <param name="role">The role, whether receiver or sender or bot.</param>
 		/// <param name="type">The type of the object to create, defined by ObjectType found in the Client class.</param>
 		/// <returns>The created object</returns>
-		public static Projector createObjectFromServer(String id, String name, OnlineRole role, ObjectType type)
-		{
-			Projector obj = Interaction.objectAt(id);
-			if (obj != null)
-			{
-				obj.stopRequestingTerminate();
-				obj.role = role;
-				Client.setNewJoin();
-				return obj;
-			}
-			Track t = new Track(Options.currentTrack);
-			Projector p = null;
-			if (type == ObjectType.aircraft)
-				p = new Aircraft(0, 1500, name, true, t);
-			else if (type == ObjectType.carrierBlue)
-				p = new AircraftCarrier(5f, 5f);
-			else if (type == ObjectType.carrierGreen)
-				p = new AircraftCarrier(5f, 10f);
-			else if (type == ObjectType.carrierRed)
-				p = new AircraftCarrier(8f, 5f);
-			else if (type == ObjectType.carrierYellow)
-				p = new AircraftCarrier(8f, 10f);
-			p.role = role;
-			holderAt(0).add(p);
-			p.setID(id);
-			//Client.setNewJoin();
-			return p;
-		}
+                public static Projector createObjectFromServer(String id, String name, OnlineRole role, ObjectType type)
+                {
+                        Projector obj = Interaction.objectAt(id);
+                        if (obj != null)
+                        {
+                                obj.stopRequestingTerminate();
+                                if (!String.IsNullOrEmpty(name))
+                                        obj.name = name;
+                                obj.role = role;
+                                Client.setNewJoin();
+                                return obj;
+                        }
+                        Track t = new Track(Options.currentTrack);
+                        Projector p = null;
+                        if (type == ObjectType.carrierBlue)
+                                p = new AircraftCarrier(5f, 5f);
+                        else if (type == ObjectType.carrierGreen)
+                                p = new AircraftCarrier(5f, 10f);
+                        else if (type == ObjectType.carrierRed)
+                                p = new AircraftCarrier(8f, 5f);
+                        else if (type == ObjectType.carrierYellow)
+                                p = new AircraftCarrier(8f, 10f);
+                        else {
+                                try
+                                {
+                                        p = Mission.createNewObject(name);
+                                }
+                                catch
+                                {
+                                        p = new Aircraft(0, 1500, name, true, t);
+                                }
+                        }
+                        if (p == null) return null;
+                        if (!String.IsNullOrEmpty(name))
+                                p.name = name;
+                        p.role = role;
+                        holderAt(0).add(p);
+                        p.setID(id);
+                        //Client.setNewJoin();
+                        return p;
+                }
 
 		/// <summary>
 		/// This method will be called when Client receives the cmd_startGame command.

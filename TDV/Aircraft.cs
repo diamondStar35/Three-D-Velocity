@@ -475,19 +475,16 @@ namespace TDV
 			set { m_lap = value; }
 		}
 
-		public override byte accelerationSpeed
+		public byte accelerationSpeed
 		{
 			get
 			{
-				if (afterburnersActive)
-					return ((byte)(base.accelerationSpeed * 6));
-
-				if (isOnRunway)
-					return (100);
-				else
-					return (base.accelerationSpeed);
+				return (byte)Math.Min(255, base.accelerationSpeed * 6);
 			}
-			set { base.accelerationSpeed = value; }
+			set
+			{
+				base.accelerationSpeed = value;
+			}
 		}
 
 		public override byte decelerationSpeed
@@ -2070,7 +2067,7 @@ namespace TDV
 				if (!isAI)
 					terminateInput();
 				if (isSender()) {
-					speak("You made a pilot error");
+					if (!isAI) speak("You made a pilot error");
 					sMessage = name + " made a pilot error";
 				}
 				if (!isAI

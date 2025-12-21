@@ -15,18 +15,12 @@ namespace TDV.Audio.TestHrtf
 
         private static int Main(string[] args)
         {
-            if (args.Length < 1)
-            {
-                Console.WriteLine("Usage: TDV.Audio.TestHrtf <wavPath> [hrtfSofaPath]");
-                return 2;
-            }
+            string alarm5Path = @"D:\Three-D-Velocity\TDV\Three-D-Velocity-Binaries\s\alarm5.wav";
+            string alarm7Path = @"D:\Three-D-Velocity\TDV\Three-D-Velocity-Binaries\s\alarm7.wav";
 
-            string wavPath = args[0];
-            string hrtfPath = args.Length > 1 ? args[1] : null;
-
-            if (!File.Exists(wavPath))
+            if (!File.Exists(alarm5Path) || !File.Exists(alarm7Path))
             {
-                Console.WriteLine("File not found: " + wavPath);
+                Console.WriteLine("Files not found.");
                 return 2;
             }
 
@@ -37,14 +31,15 @@ namespace TDV.Audio.TestHrtf
                     UseHrtf = true,
                     HrtfMode = HrtfMode.Mono,
                     HrtfDownmixMode = HrtfDownmixMode.Left,
-                    HrtfSofaPath = hrtfPath,
+                    HrtfSofaPath = null,
                     PeriodSizeInFrames = 256,
                     Channels = 2,
-                    UseCurveDistanceScaler = false,
-                    DistanceModel = DistanceModel.Linear,
+                    UseCurveDistanceScaler = true,
+                    CurveDistanceScaler = 3000.0f,
+                    DistanceModel = DistanceModel.Inverse,
                     MinDistance = 1.0f,
                     MaxDistance = 1000.0f,
-                    RollOff = 0.1f
+                    RollOff = 1.0f
                 };
 
                 var system = new AudioSystem(config);
@@ -58,44 +53,63 @@ namespace TDV.Audio.TestHrtf
                 Vector3 listenerVel = Vector3.Zero;
                 output.UpdateListener(listenerPos, listenerForward, listenerUp, listenerVel);
 
-                var source = output.CreateSource(wavPath, true);
-                source.SetPosition(new Vector3(Radius, 0, 0));
-                source.SetVelocity(Vector3.Zero);
-                source.Play(false);
+                Console.WriteLine("Loading sounds...");
+                var alarm5 = output.CreateSource(alarm5Path, true);
+                var alarm7 = output.CreateSource(alarm7Path, true);
+
+                // Apply the scaler explicitly as the game does
+                alarm5.ApplyCurveDistanceScaler(3000.0f);
+                alarm7.ApplyCurveDistanceScaler(3000.0f);
+
+                // Set initial position far away to test attenuation
+                alarm5.SetPosition(new Vector3(5000, 0, 0));
+                alarm7.SetPosition(new Vector3(5000, 0, 0)); 
 
                 var stopwatch = Stopwatch.StartNew();
-                var last = stopwatch.Elapsed;
-                Vector3 lastPos = new Vector3(Radius, 0, 0);
+                double startTime = stopwatch.Elapsed.TotalSeconds;
+                
+                // Match the value found in Aircraft.cs: private const float targetSolutionFreqCoefficient = -5 / 80f;
+                float targetSolutionFreqCoefficient = -5.0f / 80.0f; 
 
-                while (source.IsPlaying)
+                Console.WriteLine("Starting simulation loop with coefficient: " + targetSolutionFreqCoefficient);
+
+                while (stopwatch.Elapsed.TotalSeconds - startTime < 15.0)
                 {
-                    var now = stopwatch.Elapsed;
-                    double totalSeconds = now.TotalSeconds;
-                    double dt = (now - last).TotalSeconds;
-                    if (dt <= 0)
-                        dt = UpdateIntervalMs / 1000.0;
+                    double t = stopwatch.Elapsed.TotalSeconds;
+                    // Oscillate degreesDifference between 0 and 20 over time
+                    float degreesDifference = (float)(10.0 + 10.0 * Math.Sin(t * 2.0));
 
-                    double phase = (totalSeconds % CircleDurationSeconds) / CircleDurationSeconds;
-                    double angle = phase * Math.PI * 2.0;
-
-                    float x = (float)(Math.Cos(angle) * Radius);
-                    float z = (float)(Math.Sin(angle) * Radius);
-                    Vector3 pos = new Vector3(x, 0, z);
-                    Vector3 vel = (pos - lastPos) / (float)dt;
-
-                    source.SetPosition(pos);
-                    source.SetVelocity(vel);
+                    if (degreesDifference > 5.0f)
+                    {
+                        // Moving target logic
+                        if (alarm7.IsPlaying) alarm7.Stop();
+                        
+                        // Calculate frequency
+                        float freq = targetSolutionFreqCoefficient * degreesDifference;
+                        
+                        // alarm5.SetFrequency(freq); // Not available on AudioSourceHandle
+                        alarm5.SetPitch((float)Math.Pow(2.0, freq / 12.0));
+                        alarm5.Play(true);
+                        
+                        Console.WriteLine($"Diff: {degreesDifference:F2} > 5. Playing Alarm5 at Dist 5000");
+                    }
+                    else
+                    {
+                        // Solid lock logic
+                        if (alarm5.IsPlaying) alarm5.Stop();
+                        
+                        alarm7.Play(true);
+                        Console.WriteLine($"Diff: {degreesDifference:F2} <= 5. Playing Alarm7 at Dist 5000");
+                    }
 
                     system.Update();
-
-                    last = now;
-                    lastPos = pos;
-
-                    Thread.Sleep(UpdateIntervalMs);
+                    Thread.Sleep(20);
                 }
 
-                source.Dispose();
+                alarm5.Dispose();
+                alarm7.Dispose();
                 system.Dispose();
+                Console.WriteLine("Test finished.");
                 return 0;
             }
             catch (Exception ex)

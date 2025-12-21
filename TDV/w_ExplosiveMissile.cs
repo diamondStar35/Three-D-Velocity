@@ -75,11 +75,15 @@ namespace TDV
 			}
 		}
 
-		public override void use()
-		{
-			direction = weapon.creator.direction;
-			z = origTarget.z;
-		}
+                public override void use()
+                {
+                        if (weapon == null || weapon.creator == null)
+                                return;
+                        direction = weapon.creator.direction;
+                        if (origTarget == null)
+                                origTarget = weapon.getLockedTarget();
+                        z = (origTarget != null) ? origTarget.z : weapon.creator.z;
+                }
 
 		public override void free()
 		{

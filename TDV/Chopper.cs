@@ -54,7 +54,10 @@ namespace TDV
 				return;
 			}
 			if (firstMove)
+			{
 				z = Mission.player.z - 1000f;
+				if (z < 1000f) z = 1000f;
+			}
 			base.move();
 			if (Mission.player.z > minAltitude
 					&& Mission.player.z < maxAltitude - 5000f)

@@ -93,7 +93,12 @@ namespace TDV
 		carrierBlue,
 		carrierGreen,
 		carrierRed,
-		carrierYellow
+		carrierYellow,
+		chopper,
+		eliteFighter,
+		intercepter,
+		drone,
+		aceAircraft
 	}
 
 	public static class Client

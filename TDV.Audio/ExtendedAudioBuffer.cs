@@ -56,7 +56,10 @@ namespace TDV.Audio
                 _source.SeekToStart();
             }
 
-            _source.Play(loop);
+            if (!_source.IsPlaying)
+            {
+                _source.Play(loop);
+            }
             _isStopped = false;
             _isInitializingPlayback = false;
         }

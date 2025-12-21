@@ -307,6 +307,19 @@ namespace TDV.Audio
             float maxDist = Volatile.Read(ref spatial.MaxDistance);
             float rolloff = Volatile.Read(ref spatial.RollOff);
 
+            // Manual calculation for Inverse Distance to avoid potential IPL issues
+            float attenuation = 1.0f;
+            if (distance < refDist)
+            {
+                attenuation = 1.0f;
+            }
+            else
+            {
+                attenuation = refDist / distance;
+            }
+            
+            // IPL.DistanceAttenuationCalculate does this:
+            /*
             var distModel = new IPL.DistanceAttenuationModel
             {
                 Type = IPL.DistanceAttenuationModelType.InverseDistance,
@@ -315,8 +328,9 @@ namespace TDV.Audio
                 UserData = IntPtr.Zero,
                 Dirty = false
             };
-
             float attenuation = IPL.DistanceAttenuationCalculate(_ctx.Context, sourcePos, listener.Origin, in distModel);
+            */
+
             return ApplyDistanceModel(distance, refDist, maxDist, rolloff, attenuation, spatial.DistanceModel);
         }
 

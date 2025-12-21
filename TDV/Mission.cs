@@ -533,44 +533,53 @@ namespace TDV
 			return chopper;
 		}
 
-		public static MissionObjectBase createNewObject(String name)
-		{
-			if (name.Equals("ab"))
-				return new AirBase();
-			else if (name.Equals("ac"))
-				return carrier = new AircraftCarrier();
-			else if (name.Equals("bs"))
-				return new BattleShip();
-			else if (name.Equals("b"))
-				return new Bridge();
-			else if (name.Equals("c"))
-				return new Chopper();
-			else if (name.StartsWith("f") && name.Length == 2) // f1 to fn (single digit)
-				return new Aircraft(name);
-			else if (name.Equals("gt"))
-				return new GuardTower();
-			else if (name.Equals("i"))
-				return island = new Island();
-			else if (name.Equals("db"))
-				return darkBlaze = new JuliusAircraft();
-			else if (name.Equals("r"))
-				return refueler = new MidAirRefueler();
-			else if (name.Equals("pp"))
-				return new PowerPlant();
-			else if (name.Equals("rs"))
-				return new RadarTower();
-			else if (name.Equals("sb"))
-				return new SAM();
-			else if (name.Equals("t"))
-				return new Tank();
-			else if (name.Equals("tg"))
-				return new TrainingCamp();
-			else if (name.Equals("o"))
-				return player = new Aircraft(false); //create player
-			else if (name.Equals("lb"))
-				return landingBeacon = new LandingBeacon();
-			throw new ArgumentException($"The string {name} is not a valid object name.");
-		}
+                public static MissionObjectBase createNewObject(String name)
+                {
+                        string lowerName = name.ToLower();
+                        if (lowerName.Equals("ab"))
+                                return new AirBase();
+                        else if (lowerName.Equals("ac"))
+                                return carrier = new AircraftCarrier();
+                        else if (lowerName.Equals("bs") || lowerName.StartsWith("battleship"))
+                                return new BattleShip();
+                        else if (lowerName.Equals("b"))
+                                return new Bridge();
+                        else if (lowerName.Equals("c") || lowerName.StartsWith("chopper"))
+                                return new Chopper();
+                        else if ((lowerName.StartsWith("f") && lowerName.Length == 2) || lowerName.StartsWith("fighter")) // f1 to fn (single digit)
+                                return new Aircraft(name);
+                        else if (lowerName.Equals("gt") || lowerName.StartsWith("guard tower"))
+                                return new GuardTower();
+                        else if (lowerName.Equals("i"))
+                                return island = new Island();
+                        else if (lowerName.Equals("db"))
+                                return darkBlaze = new JuliusAircraft();
+                        else if (lowerName.Equals("r"))
+                                return refueler = new MidAirRefueler();
+                        else if (lowerName.Equals("pp"))
+                                return new PowerPlant();
+                        else if (lowerName.Equals("rs") || lowerName.StartsWith("radar tower"))
+                                return new RadarTower();
+                        else if (lowerName.Equals("sb") || lowerName.StartsWith("sam"))
+                                return new SAM();
+                        else if (lowerName.Equals("t") || lowerName.StartsWith("tank"))
+                                return new Tank();
+                        else if (lowerName.StartsWith("interceptor"))
+                                return new Interceptor();
+                        else if (lowerName.StartsWith("elite fighter") || lowerName.StartsWith("elitefighter"))
+                                return new EliteFighter();
+                        else if (lowerName.StartsWith("drone"))
+                                return new Drone();
+                        else if (lowerName.StartsWith("ace") || lowerName.StartsWith("ace aircraft"))
+                                return new AceAircraft();
+                        else if (lowerName.Equals("tg"))
+                                return new TrainingCamp();
+                        else if (lowerName.Equals("o"))
+                                return player = new Aircraft(false); //create player
+                        else if (lowerName.Equals("lb"))
+                                return landingBeacon = new LandingBeacon();
+                        throw new ArgumentException($"The string {name} is not a valid object name.");
+                }
 
 		#region ObjectGeneration
 		public static void setUpAirbase()
