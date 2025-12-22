@@ -325,11 +325,12 @@ namespace TDVServer
                                                                 String rBotName = null;
                                                                 String rBotId = null;
                                                                 if (bots.Count > 0) {
-                                                                        rBotName = bots[0].name;
-                                                                        rBotId = removeBot(0);
+                                                                        int lastIndex = bots.Count - 1;
+                                                                        rBotName = bots[lastIndex].name;
+                                                                        rBotId = removeBot(lastIndex);
                                                                 }
                                                                 if (rBotId == null)
-                                                                        break;
+                                                                        break;  
                                                                 sendMessage((String.IsNullOrEmpty(rBotName) ? rBotId : rBotName) + " has been dropped from the server", null);
                                                                 propogate(CSCommon.buildCMDString(CSCommon.cmd_forceDisconnect, rBotId), null);
                                                                 break;
@@ -800,9 +801,8 @@ namespace TDVServer
 		            propogate(CSCommon.buildCMDString(CSCommon.cmd_distributeServerTag, botId, botName, (byte)objectType, (short)0), clientList[creator].client);
 		            if (objectType == ObjectType.aircraft || objectType >= ObjectType.chopper)
 		                sendMessage(botName + " has been created.", null);
-		            bots.Add(new BotInfo(creator, botId, botName, objectType));
-		            bots.Sort();
-		            output(LoggingLevels.debug, "Bot " + botName + " created");
+            bots.Add(new BotInfo(creator, botId, botName, objectType));
+            output(LoggingLevels.debug, "Bot " + botName + " created");
 		        }
 		public void setForceGameEnd(String reason)
 		{
